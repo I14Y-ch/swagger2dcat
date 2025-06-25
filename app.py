@@ -8,10 +8,13 @@ import tempfile
 import pickle
 import requests
 import re
+
+# Setup environment first before any other imports
+from utils.env_setup import setup_environment
+logger = setup_environment()
+
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file, flash
 from dotenv import load_dotenv
-from utils.openai_utils import generate_api_description
-from utils.deepl_utils import translate_content
 
 # Load environment variables
 load_dotenv()
@@ -22,6 +25,10 @@ try:
 except ImportError:
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     DEEPL_API_KEY = os.getenv('DEEPL_API_KEY')
+
+# Log key presence (not the actual values)
+logger.info(f"OPENAI_API_KEY available: {bool(OPENAI_API_KEY)}")
+logger.info(f"DEEPL_API_KEY available: {bool(DEEPL_API_KEY)}")
 
 # Create Flask app with the correct URL prefix
 app = Flask(__name__, 
@@ -661,7 +668,7 @@ def upload():
             'en': {
                 'title': title,
                 'description': description,
-                'keywords': keywords if isinstance(keywords, list) else []
+                'keywords': keywords if isinstance(keywords, list) : []
             },
             'de': {'title': '', 'description': '', 'keywords': []},
             'fr': {'title': '', 'description': '', 'keywords': []},
@@ -1455,4 +1462,5 @@ def autosave_review():
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    logger.info(f"Starting Flask app on port {port}")
+    app.run(debug=False, host='0.0.0.0', port=port)

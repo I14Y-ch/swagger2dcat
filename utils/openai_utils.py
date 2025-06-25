@@ -3,14 +3,36 @@ import json
 import requests
 from openai import OpenAI
 
-# Try to import config, if it exists
-try:
-    from config import OPENAI_API_KEY, OPENAI_MODEL
-except ImportError:
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-    OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4')
+# Try to get API key from environment with proper fallbacks and helpful error messages
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+if not OPENAI_API_KEY:
+    try:
+        from config import OPENAI_API_KEY
+    except (ImportError, AttributeError):
+        pass
+
+# Initialize client only if API key is available, otherwise it will be initialized when needed
+client = None
+if OPENAI_API_KEY:
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+def get_openai_client():
+    """Get OpenAI client with proper error handling"""
+    global client
+    if client is not None:
+        return client
+    
+    # Try to initialize on demand
+    api_key = os.environ.get('OPENAI_API_KEY')
+    if api_key:
+        client = OpenAI(api_key=api_key)
+        return client
+    else:
+        raise ValueError(
+            "OpenAI API key not found. Make sure to set the OPENAI_API_KEY environment variable "
+            "or provide it in a config.py file."
+        )
 
 def generate_api_description(swagger_url, landing_page_url=None, landing_page_content=None):
     """
@@ -236,5 +258,6 @@ def generate_api_description(swagger_url, landing_page_url=None, landing_page_co
         return result
     except Exception as e:
         return {
-            "error": f"Error generating API description with OpenAI: {str(e)}"
+            "error": f"OpenAI API error: {str(e)}",
+            "details": traceback.format_exc()
         }
