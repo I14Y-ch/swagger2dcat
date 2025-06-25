@@ -14,6 +14,7 @@ from utils.env_setup import setup_environment
 logger = setup_environment()
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file, flash
+from flask_session import Session  # <-- Add this import
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -32,9 +33,16 @@ logger.info(f"DEEPL_API_KEY available: {bool(DEEPL_API_KEY)}")
 
 # Create Flask app with the correct URL prefix
 app = Flask(__name__, 
-            static_url_path='/swagger2dcat/static',  # Update static path
+            static_url_path='/swagger2dcat/static',
             template_folder='templates'
            )
+
+# Configure server-side session storage
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_storage')
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+Session(app)  # <-- Initialize Flask-Session
 
 # Apply URL prefix to all routes
 app.config['APPLICATION_ROOT'] = '/swagger2dcat'
