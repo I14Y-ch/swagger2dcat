@@ -9,6 +9,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application code
 COPY . .
 
+# Create and set permissions for session storage directory
+RUN mkdir -p /app/session_storage && chmod 777 /app/session_storage
+
+# For temp files permissions
+RUN chmod 777 /tmp
+
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

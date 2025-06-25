@@ -39,13 +39,22 @@ app = Flask(__name__,
            )
 
 # Configure server-side session storage
+session_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_storage')
+os.makedirs(session_dir, exist_ok=True)
+# Ensure permissions are set correctly for Docker environment
+try:
+    os.chmod(session_dir, 0o777)  # Make writable by all users (needed for Docker)
+except Exception as e:
+    logger.warning(f"Could not set permissions on session directory: {e}")
+
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_storage')
+app.config['SESSION_FILE_DIR'] = session_dir
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
 app.config['SESSION_COOKIE_PATH'] = '/swagger2dcat'  # <-- Ensure cookie is valid for the app prefix
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = True  # If using HTTPS
+# Only use SECURE cookies if HTTPS is enabled
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('HTTPS_ENABLED', '').lower() == 'true'
 Session(app)
 
 # Apply ProxyFix for correct proxy handling (important for Digital Ocean)
@@ -166,6 +175,33 @@ def detect_office_id_from_url(url, agents):
                     return pid
     return None
 
+# Add a new storage backend (simple file-based for now, could be DB)
+class WorkflowStorage:
+    def __init__(self, base_dir=None):
+        self.base_dir = base_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'workflows')
+        os.makedirs(self.base_dir, exist_ok=True)
+    
+    def save(self, workflow_id, data):
+        file_path = os.path.join(self.base_dir, f"{workflow_id}.json")
+        with open(file_path, 'w') as f:
+            json.dump(data, f)
+    
+    def load(self, workflow_id):
+        file_path = os.path.join(self.base_dir, f"{workflow_id}.json")
+        if not os.path.exists(file_path):
+            return None
+        with open(file_path, 'r') as f:
+            return json.load(f)
+    
+    def delete(self, workflow_id):
+        file_path = os.path.join(self.base_dir, f"{workflow_id}.json")
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+# Initialize storage
+workflow_storage = WorkflowStorage()
+
+# Then modify routes to use workflow_id parameter instead of session
 @app.route('/')
 def index():
     # Clear session only on a fresh start
@@ -175,36 +211,19 @@ def index():
 @app.route('/url', methods=['GET', 'POST'])
 def url():
     if request.method == 'POST':
-        # Get form data
-        swagger_url = request.form.get('swagger_url', '')
-        landing_page_url = request.form.get('landing_page_url', '')
+        # Create new workflow
+        workflow_id = str(uuid.uuid4())
         
-        # Validate swagger URL
-        if not swagger_url:
-            return render_template('url.html', 
-                                  swagger_url=swagger_url, 
-                                  landing_page_url=landing_page_url,
-                                  error='Please provide a valid Swagger/OpenAPI URL')
-        
-        # Clean up old temp files
-        cleanup_old_temp_files()
-        
-        # Generate a unique processing ID
-        processing_id = str(uuid.uuid4())
-        
-        # Store minimal data in session
-        session['swagger_url'] = swagger_url
-        session['landing_page_url'] = landing_page_url
-        session['processing_id'] = processing_id
-        session['processing_status'] = 'processing'
-        
-        # Initialize processing result with minimal data
-        processing_results[processing_id] = {
-            'status': 'processing',
-            'error': None
+        # Save initial data
+        workflow_data = {
+            'swagger_url': request.form.get('swagger_url', ''),
+            'landing_page_url': request.form.get('landing_page_url', ''),
+            'created_at': time.time(),
+            'status': 'processing'
         }
+        workflow_storage.save(workflow_id, workflow_data)
         
-        # Start background processing
+        # Start processing in background
         def process_api_data(proc_id, swagger_url, landing_page_url):
             try:
                 # Parse Swagger specification (now with URL detection)
@@ -254,93 +273,37 @@ def url():
                 processing_results[proc_id]['error'] = str(e)
         
         # Start the background thread
-        thread = threading.Thread(target=process_api_data, args=(processing_id, swagger_url, landing_page_url))
+        thread = threading.Thread(target=process_api_data, args=(workflow_id, request.form.get('swagger_url', ''), request.form.get('landing_page_url', '')))
         thread.daemon = True
         thread.start()
         
         # Redirect to loading page
-        return redirect(url_for('loading'))
+        return redirect(url_for('loading', workflow_id=workflow_id))
     else:
-        # Check if this is a direct visit vs. backward navigation
-        # If coming from higher steps (backward navigation), keep session data
-        from_step = request.args.get('from_step')
-        error_message = request.args.get('error')
-        
-        # Only clear session if this is a direct visit (not backward navigation)
-        if not from_step:
-            session.clear()
-        
-        # Get the existing URL data if navigating backward
-        swagger_url = session.get('swagger_url', '')
-        landing_page_url = session.get('landing_page_url', '')
-        
-        return render_template('url.html', 
-                             swagger_url=swagger_url,
-                             landing_page_url=landing_page_url,
-                             current_step=1,
-                             error=error_message)
+        # Start new workflow
+        return render_template('url.html', current_step=1)
 
 @app.route('/loading')
 def loading():
-    return render_template('loading.html', current_step=1)
+    workflow_id = request.args.get('workflow_id')
+    if not workflow_id:
+        return redirect(url_for('url'))
+    
+    return render_template('loading.html', 
+                          current_step=1, 
+                          workflow_id=workflow_id)
 
 @app.route('/check_processing_status')
 def check_processing_status():
-    # Debug: log session contents
-    logger.info(f"Session contents at /check_processing_status: {dict(session)}")
-    processing_id = session.get('processing_id')
+    workflow_id = request.args.get('workflow_id')
+    if not workflow_id:
+        return jsonify({'status': 'error', 'message': 'No workflow ID provided'})
     
-    if not processing_id:
-        return jsonify({'status': 'error', 'message': 'No processing ID found in session'})
+    workflow_data = workflow_storage.load(workflow_id)
+    if not workflow_data:
+        return jsonify({'status': 'error', 'message': 'Workflow not found'})
     
-    if processing_id not in processing_results:
-        return jsonify({'status': 'error', 'message': 'Processing ID not found'})
-    
-    result = processing_results[processing_id]
-    status = result['status']
-    
-    if status == 'complete':
-        # Load results from temporary file
-        processing_data = load_processing_data(processing_id)
-        
-        if processing_data:
-            # Store only essential data in session to avoid size limits
-            session['swagger_info'] = processing_data['swagger_info']
-            session['landing_page_content'] = processing_data['landing_page_content']
-            session['document_links'] = processing_data.get('document_links', [])
-            
-            # Store agents count instead of full list initially
-            session['agents_count'] = len(processing_data['agents']) if processing_data['agents'] else 0
-            
-            # Store agents in a separate temporary file for step2
-            agents_temp_id = str(uuid.uuid4())
-            session['agents_temp_id'] = agents_temp_id
-            save_processing_data(agents_temp_id, {'agents': processing_data['agents']})
-            
-            if processing_data['agents_error']:
-                session['agents_error'] = processing_data['agents_error']
-        
-        # Clean up
-        if processing_id in processing_results:
-            del processing_results[processing_id]
-        session['processing_status'] = 'complete'
-        
-        # Store address_data in session for later use (step 4)
-        session['address_data'] = processing_data.get('address_data', {})
-        
-        return jsonify({'status': 'complete'})
-    elif status == 'error':
-        error_message = result['error']
-        session['processing_status'] = 'error'
-        session['processing_error'] = error_message
-        
-        # Clean up
-        if processing_id in processing_results:
-            del processing_results[processing_id]
-        
-        return jsonify({'status': 'error', 'message': error_message})
-    else:
-        return jsonify({'status': 'processing'})
+    return jsonify({'status': workflow_data.get('status', 'unknown')})
 
 @app.route('/ai')
 def ai():
