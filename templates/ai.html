@@ -1,0 +1,391 @@
+{% extends 'base.html' %}
+
+{% block title %}Step 2: Review and Edit Metadata{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Step 2: Review and Edit Metadata</h1>
+    <p class="lead">Review the extracted metadata and make any necessary changes.</p>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">API Information</h3>
+        </div>            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Swagger URL:</strong> <a href="{{ swagger_url }}" target="_blank">{{ swagger_url }}</a>
+                </div>
+                {% if landing_page_url %}
+                <div class="mb-3">
+                    <strong>Landing Page URL:</strong> <a href="{{ landing_page_url }}" target="_blank">{{ landing_page_url }}</a>
+                    <small class="text-muted d-block">Content from this page has been extracted and added to the description field.</small>
+                </div>
+                {% endif %}
+            </div>
+    </div>
+
+    <form id="apiDetailsForm" method="POST" action="/save_api_details">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">API Details</h3>
+                <button type="button" id="generateBtn" class="btn btn-light">
+                    <span id="loadingSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    Generate with AI
+                </button>
+            </div>
+            <div class="card-body">
+                <!-- Title field -->
+                <div class="mb-3">
+                    <label for="title" class="form-label">Title:</label>
+                    <input type="text" class="form-control" id="title" name="title" value="{{ title }}">
+                    <small class="form-text text-muted">Pre-filled from Swagger information</small>
+                </div>
+                
+                <!-- Description field -->
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description:</label>
+                    <textarea class="form-control" id="description" name="description" rows="12">{{ description }}</textarea>
+                    <small class="form-text text-muted">Pre-filled with Swagger description, landing page content, version, and endpoint information</small>
+                </div>
+                
+                <!-- Keywords field -->
+                <div class="mb-3">
+                    <label for="keywords" class="form-label">Keywords (comma-separated):</label>
+                    <input type="text" class="form-control" id="keywords" name="keywords" value="{{ keywords }}">
+                    <small class="form-text text-muted">Enter up to 5 keywords separated by commas</small>
+                </div>
+                
+                <!-- Theme codes multi-select -->
+                <div class="mb-3">
+                    <label for="theme_codes" class="form-label">Theme Categories:</label>
+                    <select class="form-select" id="theme_codes" name="theme_codes" multiple size="8">
+                        <option value="101" {% if "101" in theme_codes %}selected{% endif %}>101 | Labour</option>
+                        <option value="102" {% if "102" in theme_codes %}selected{% endif %}>102 | Construction</option>
+                        <option value="103" {% if "103" in theme_codes %}selected{% endif %}>103 | Education</option>
+                        <option value="104" {% if "104" in theme_codes %}selected{% endif %}>104 | External relations</option>
+                        <option value="105" {% if "105" in theme_codes %}selected{% endif %}>105 | Jurisdiction</option>
+                        <option value="106" {% if "106" in theme_codes %}selected{% endif %}>106 | Society</option>
+                        <option value="107" {% if "107" in theme_codes %}selected{% endif %}>107 | Political activities</option>
+                        <option value="108" {% if "108" in theme_codes %}selected{% endif %}>108 | Culture</option>
+                        <option value="109" {% if "109" in theme_codes %}selected{% endif %}>109 | Agriculture</option>
+                        <option value="110" {% if "110" in theme_codes %}selected{% endif %}>110 | Infrastructure</option>
+                        <option value="111" {% if "111" in theme_codes %}selected{% endif %}>111 | Security</option>
+                        <option value="112" {% if "112" in theme_codes %}selected{% endif %}>112 | Taxes</option>
+                        <option value="113" {% if "113" in theme_codes %}selected{% endif %}>113 | Environment</option>
+                        <option value="114" {% if "114" in theme_codes %}selected{% endif %}>114 | Health</option>
+                        <option value="115" {% if "115" in theme_codes %}selected{% endif %}>115 | Economy</option>
+                        <option value="116" {% if "116" in theme_codes %}selected{% endif %}>116 | Mobility</option>
+                        <option value="117" {% if "117" in theme_codes %}selected{% endif %}>117 | Citizens</option>
+                        <option value="118" {% if "118" in theme_codes %}selected{% endif %}>118 | Businesses</option>
+                        <option value="119" {% if "119" in theme_codes %}selected{% endif %}>119 | Authorities</option>
+                        <option value="120" {% if "120" in theme_codes %}selected{% endif %}>120 | Buildings and land</option>
+                        <option value="121" {% if "121" in theme_codes %}selected{% endif %}>121 | Animals</option>
+                        <option value="122" {% if "122" in theme_codes %}selected{% endif %}>122 | Geoinformation</option>
+                        <option value="123" {% if "123" in theme_codes %}selected{% endif %}>123 | Compilation of laws</option>
+                        <option value="124" {% if "124" in theme_codes %}selected{% endif %}>124 | Energy</option>
+                        <option value="125" {% if "125" in theme_codes %}selected{% endif %}>125 | Official statistics</option>
+                        <option value="126" {% if "126" in theme_codes %}selected{% endif %}>126 | Social security</option>
+                    </select>
+                    <small class="form-text text-muted">Hold Ctrl (or Cmd on Mac) to select multiple themes</small>
+                </div>
+                
+                <!-- Access Rights Selection -->
+                <div class="mb-3">
+                    <label for="access_rights_code" class="form-label">
+                        <i class="bi bi-shield-check"></i> Access Rights *
+                    </label>
+                    <select class="form-select" id="access_rights_code" name="access_rights_code" required>
+                        {% for option in access_rights_options %}
+                            <option value="{{ option.code }}" 
+                                    {% if access_rights_code == option.code %}selected{% endif %}>
+                                {{ option.label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select the appropriate access level for this API</div>
+                </div>
+
+                <!-- License Selection -->
+                <div class="mb-3">
+                    <label for="license_code" class="form-label">
+                        <i class="bi bi-file-text"></i> License
+                    </label>
+                    <select class="form-select" id="license_code" name="license_code">
+                        {% for option in license_options %}
+                            <option value="{{ option.code }}" 
+                                    {% if license_code == option.code %}selected{% endif %}>
+                                {{ option.label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select the license that applies to this API (optional)</div>
+                </div>
+
+                <!-- Publisher Selection -->
+                <div class="mb-3">
+                    <label for="agency" class="form-label">
+                        <i class="bi bi-building"></i> Publisher *
+                    </label>
+                    <select class="form-select" id="agency" name="agency" {% if not agents %}disabled{% endif %}>
+                        {% if not agents %}
+                            <option value="">No publishers available</option>
+                        {% else %}
+                            <option value="">-- Select a Publisher --</option>
+                            {% for agent in agents %}
+                                <option value="{{ agent.id }}" {% if agent.id == selected_agency %}selected{% endif %}>{{ agent.display_name }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                    <small class="form-text text-muted">Select the organization that publishes this API</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group mb-4">
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('url', from_step=2) }}" class="btn btn-secondary">Back</a>
+                <button type="submit" class="btn btn-primary">Go to Translation</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Loading Overlay for AI Generation -->
+<div id="aiLoadingOverlay" class="loading-overlay d-none">
+    <div class="loading-content">
+        <div class="card">
+            <div class="card-body p-5 text-center">
+                <div class="spinner-border text-primary mb-4" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h3 class="mb-3">Generating API Description with AI</h3>
+                <p class="text-muted mb-4">Our AI is analyzing your Swagger documentation and creating a comprehensive description. This may take a few moments...</p>
+                
+                <div class="progress mb-4">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" 
+                         style="width: 0%" 
+                         id="aiProgress">
+                    </div>
+                </div>
+                
+                <div id="aiStatus" class="text-muted">
+                    <small>Analyzing Swagger documentation...</small>
+                </div>
+                
+                <button type="button" class="btn btn-secondary mt-3" onclick="cancelAiGeneration()">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-content {
+    max-width: 500px;
+    width: 90%;
+}
+
+.loading-overlay .card {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const generateBtn = document.getElementById('generateBtn');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const titleField = document.getElementById('title');
+        const descriptionField = document.getElementById('description');
+        const keywordsField = document.getElementById('keywords');
+        const themeCodesField = document.getElementById('theme_codes');
+        const aiOverlay = document.getElementById('aiLoadingOverlay');
+        const aiProgress = document.getElementById('aiProgress');
+        const aiStatus = document.getElementById('aiStatus');
+        
+        let aiGenerationCancelled = false;
+        let progressInterval;
+        let statusInterval;
+        
+        const statusMessages = [
+            "Analyzing Swagger documentation...",
+            "Extracting API endpoints...",
+            "Processing metadata...",
+            "Generating description with AI...",
+            "Finalizing content..."
+        ];
+        
+        function updateAiProgress() {
+            if (aiGenerationCancelled) return;
+            
+            let currentWidth = parseInt(aiProgress.style.width) || 0;
+            if (currentWidth < 90) {
+                currentWidth += Math.random() * 15 + 5;
+                aiProgress.style.width = Math.min(currentWidth, 90) + '%';
+                
+                const messageIndex = Math.floor(currentWidth / 20);
+                if (statusMessages[messageIndex]) {
+                    aiStatus.innerHTML = '<small>' + statusMessages[messageIndex] + '</small>';
+                }
+            }
+        }
+        
+        function showAiLoading() {
+            aiGenerationCancelled = false;
+            aiOverlay.classList.remove('d-none');
+            aiProgress.style.width = '0%';
+            aiStatus.innerHTML = '<small>' + statusMessages[0] + '</small>';
+            
+            // Update progress every 800ms
+            progressInterval = setInterval(updateAiProgress, 800);
+        }
+        
+        function hideAiLoading() {
+            aiOverlay.classList.add('d-none');
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+            if (statusInterval) {
+                clearInterval(statusInterval);
+            }
+        }
+        
+        function completeAiProgress(success = true) {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+            
+            aiProgress.style.width = '100%';
+            if (success) {
+                aiStatus.innerHTML = '<small class="text-success">AI generation completed successfully!</small>';
+            } else {
+                aiStatus.innerHTML = '<small class="text-danger">AI generation failed. Please try again.</small>';
+            }
+            
+            setTimeout(() => {
+                hideAiLoading();
+            }, success ? 1000 : 3000);
+        }
+        
+        window.cancelAiGeneration = function() {
+            aiGenerationCancelled = true;
+            hideAiLoading();
+            
+            // Re-enable the generate button
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<span id="loadingSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span> Generate with AI';
+        };
+        
+        generateBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Show loading overlay
+            showAiLoading();
+            
+            // Disable the generate button
+            generateBtn.disabled = true;
+            
+            // Call the generate API endpoint
+            fetch('/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (aiGenerationCancelled) return;
+                
+                if (data.error) {
+                    // Show error message
+                    completeAiProgress(false);
+                    setTimeout(() => {
+                        alert('Error: ' + data.error);
+                    }, 3000);
+                } else {
+                    // Fill the form fields with the generated data
+                    titleField.value = data.title || '';
+                    descriptionField.value = data.description || '';
+                    
+                    // Handle keywords - could be array or string
+                    if (Array.isArray(data.keywords)) {
+                        keywordsField.value = data.keywords.join(', ');
+                    } else if (data.keywords) {
+                        keywordsField.value = data.keywords;
+                    }
+                    
+                    // Handle theme codes (multi-select)
+                    // Clear all selections first
+                    for (let i = 0; i < themeCodesField.options.length; i++) {
+                        themeCodesField.options[i].selected = false;
+                    }
+                    // If theme_codes is an array, select all
+                    if (Array.isArray(data.theme_codes)) {
+                        data.theme_codes.forEach(function(code) {
+                            for (let i = 0; i < themeCodesField.options.length; i++) {
+                                if (themeCodesField.options[i].value === code) {
+                                    themeCodesField.options[i].selected = true;
+                                }
+                            }
+                        });
+                    }
+                    // If theme_code is a single value, select it
+                    else if (data.theme_code) {
+                        for (let i = 0; i < themeCodesField.options.length; i++) {
+                            if (themeCodesField.options[i].value === data.theme_code) {
+                                themeCodesField.options[i].selected = true;
+                            }
+                        }
+                    }
+                    
+                    // Show success completion
+                    completeAiProgress(true);
+                }
+            })
+            .catch(error => {
+                if (aiGenerationCancelled) return;
+                
+                // Show error completion
+                completeAiProgress(false);
+                setTimeout(() => {
+                    alert('Error: ' + error.message);
+                }, 3000);
+            })
+            .finally(() => {
+                // Re-enable button after delay
+                setTimeout(() => {
+                    generateBtn.disabled = false;
+                }, 2000);
+            });
+        });
+    });
+</script>
+{% endblock %}

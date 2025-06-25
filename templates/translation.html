@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Step 3: Translate Metadata{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Step 3: Translate Metadata</h1>
+    <p class="lead">Review and translate the metadata into other languages.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('translate') }}">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">English Metadata</h3>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="title_en" class="form-label">Title (EN):</label>
+                    <input type="text" class="form-control" id="title_en" name="title_en" value="{{ title }}">
+                </div>
+                <div class="mb-3">
+                    <label for="description_en" class="form-label">Description (EN):</label>
+                    <textarea class="form-control" id="description_en" name="description_en" rows="8">{{ description }}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="keywords_en" class="form-label">Keywords (EN):</label>
+                    <input type="text" class="form-control" id="keywords_en" name="keywords_en" value="{{ keywords }}">
+                    <small class="form-text text-muted">Comma-separated keywords</small>
+                </div>
+            </div>
+        </div>
+        <div class="form-group mb-4">
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('ai') }}" class="btn btn-secondary">Back</a>
+                <button type="submit" class="btn btn-primary">Translate</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

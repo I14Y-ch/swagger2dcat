@@ -1,0 +1,11 @@
+# Configuration file for API keys
+# Rename this file to config.py and add your API keys
+
+# OpenAI API key for generating descriptions
+OPENAI_API_KEY = "your_openai_api_key_here"
+
+# DeepL API key for translations
+DEEPL_API_KEY = "your_deepl_api_key_here"
+
+# Flask secret key
+SECRET_KEY = "your_secret_key_here"

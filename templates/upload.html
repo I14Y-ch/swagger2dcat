@@ -1,0 +1,636 @@
+{% extends 'base.html' %}
+
+{% block title %}Step 4: Review and Download{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Step 4: Review and Download</h1>
+    <p class="lead">Review and edit all metadata before upload or download.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="/upload" id="reviewForm">
+        <!-- Tab navigation -->
+        <ul class="nav nav-tabs mb-3" id="reviewTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="english-tab" data-bs-toggle="tab" data-bs-target="#english" type="button" role="tab" aria-controls="english" aria-selected="true">English</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="german-tab" data-bs-toggle="tab" data-bs-target="#german" type="button" role="tab" aria-controls="german" aria-selected="false">German</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="french-tab" data-bs-toggle="tab" data-bs-target="#french" type="button" role="tab" aria-controls="french" aria-selected="false">French</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="italian-tab" data-bs-toggle="tab" data-bs-target="#italian" type="button" role="tab" aria-controls="italian" aria-selected="false">Italian</button>
+            </li>
+        </ul>
+
+        <!-- Tab content -->
+        <div class="tab-content mb-4" id="reviewTabsContent">
+            <!-- English Tab -->
+            <div class="tab-pane fade show active" id="english" role="tabpanel" aria-labelledby="english-tab">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="mb-0">English Content</h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- API Metadata -->
+                        <h4 class="mb-3">API Metadata</h4>
+                        <div class="mb-3">
+                            <label for="title_en" class="form-label">Title (EN):</label>
+                            <input type="text" class="form-control" id="title_en" name="title_en" value="{{ translations['en']['title'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="description_en" class="form-label">Description (EN):</label>
+                            <textarea class="form-control" id="description_en" name="description_en" rows="12">{{ translations['en']['description'] }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="keywords_en" class="form-label">Keywords (EN):</label>
+                            <input type="text" class="form-control" id="keywords_en" name="keywords_en" value="{{ translations['en']['keywords']|join(', ') }}">
+                            <small class="form-text text-muted">Comma-separated keywords</small>
+                        </div>
+                        
+                        <!-- Contact Point -->
+                        <hr>
+                        <h4 class="mb-3">Contact Point</h4>
+                        <div class="mb-3">
+                            <label for="org_en" class="form-label">Organization (EN):</label>
+                            <input type="text" class="form-control" id="org_en" name="org_en" value="{{ contact_point['org']['en'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="adr_en" class="form-label">Address (EN):</label>
+                            <input type="text" class="form-control" id="adr_en" name="adr_en"
+                                value="{% if contact_point['adrWork']['en'] %}{{ contact_point['adrWork']['en'] }}
+                                       {% elif address_data and address_data.get('address') %}{{ address_data.get('address') }}
+                                       {% else %}{% endif %}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="note_en" class="form-label">Note (EN):</label>
+                            <input type="text" class="form-control" id="note_en" name="note_en" value="{{ contact_point['note']['en'] }}">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="emailInternet" class="form-label">Email:</label>
+                                <input type="email" class="form-control" id="emailInternet" name="emailInternet" value="{{ contact_point['emailInternet'] }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="telWorkVoice" class="form-label">Phone:</label>
+                                <input type="text" class="form-control" id="telWorkVoice" name="telWorkVoice" value="{{ contact_point['telWorkVoice'] }}">
+                            </div>
+                        </div>
+                        
+                        <!-- Document Links -->
+                        <hr>
+                        <h4 class="mb-3">Document Links</h4>
+                        <div id="document-links-container">
+                            {% if document_links %}
+                                {% for doc in document_links %}
+                                <div class="document-link-row row mb-3">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control" name="doc_label[]" value="{{ doc.label }}" placeholder="Document Label">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" name="doc_href[]" value="{{ doc.href }}" placeholder="Document URL">
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-danger remove-doc-btn"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> No document links found. Add some using the button below.
+                                </div>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-outline-primary mt-3" id="add-document-btn">
+                            <i class="bi bi-plus-circle"></i> Add Document Link
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- German Tab -->
+            <div class="tab-pane fade" id="german" role="tabpanel" aria-labelledby="german-tab">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="mb-0">German Content</h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- API Metadata -->
+                        <h4 class="mb-3">API Metadata</h4>
+                        <div class="mb-3">
+                            <label for="title_de" class="form-label">Title (DE):</label>
+                            <input type="text" class="form-control" id="title_de" name="title_de" value="{{ translations['de']['title'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="description_de" class="form-label">Description (DE):</label>
+                            <textarea class="form-control" id="description_de" name="description_de" rows="12">{{ translations['de']['description'] }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="keywords_de" class="form-label">Keywords (DE):</label>
+                            <input type="text" class="form-control" id="keywords_de" name="keywords_de" value="{{ translations['de']['keywords']|join(', ') }}">
+                            <small class="form-text text-muted">Comma-separated keywords</small>
+                        </div>
+                        
+                        <!-- Contact Point -->
+                        <hr>
+                        <h4 class="mb-3">Contact Point</h4>
+                        <div class="mb-3">
+                            <label for="org_de" class="form-label">Organization (DE):</label>
+                            <input type="text" class="form-control" id="org_de" name="org_de" value="{{ contact_point['org']['de'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="adr_de" class="form-label">Address (DE):</label>
+                            <input type="text" class="form-control" id="adr_de" name="adr_de" value="{{ contact_point['adrWork']['de'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="note_de" class="form-label">Note (DE):</label>
+                            <input type="text" class="form-control" id="note_de" name="note_de" value="{{ contact_point['note']['de'] }}">
+                        </div>
+                        
+                        <!-- Document Links -->
+                        <hr>
+                        <h4 class="mb-3">Dokumente</h4>
+                        <div id="document-links-container-de">
+                            {% if document_links %}
+                                {% for doc in document_links %}
+                                <div class="document-link-row row mb-3">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control" name="doc_label[]" value="{{ doc.label }}" placeholder="Dokumentbezeichnung">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" name="doc_href[]" value="{{ doc.href }}" placeholder="Dokument-URL">
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-danger remove-doc-btn"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Keine Dokumente gefunden. Fügen Sie welche mit dem Button unten hinzu.
+                                </div>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-outline-primary mt-3 add-document-btn">
+                            <i class="bi bi-plus-circle"></i> Dokument hinzufügen
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- French Tab -->
+            <div class="tab-pane fade" id="french" role="tabpanel" aria-labelledby="french-tab">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="mb-0">French Content</h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- API Metadata -->
+                        <h4 class="mb-3">API Metadata</h4>
+                        <div class="mb-3">
+                            <label for="title_fr" class="form-label">Title (FR):</label>
+                            <input type="text" class="form-control" id="title_fr" name="title_fr" value="{{ translations['fr']['title'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="description_fr" class="form-label">Description (FR):</label>
+                            <textarea class="form-control" id="description_fr" name="description_fr" rows="12">{{ translations['fr']['description'] }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="keywords_fr" class="form-label">Keywords (FR):</label>
+                            <input type="text" class="form-control" id="keywords_fr" name="keywords_fr" value="{{ translations['fr']['keywords']|join(', ') }}">
+                            <small class="form-text text-muted">Comma-separated keywords</small>
+                        </div>
+                        
+                        <!-- Contact Point -->
+                        <hr>
+                        <h4 class="mb-3">Contact Point</h4>
+                        <div class="mb-3">
+                            <label for="org_fr" class="form-label">Organization (FR):</label>
+                            <input type="text" class="form-control" id="org_fr" name="org_fr" value="{{ contact_point['org']['fr'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="adr_fr" class="form-label">Address (FR):</label>
+                            <input type="text" class="form-control" id="adr_fr" name="adr_fr" value="{{ contact_point['adrWork']['fr'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="note_fr" class="form-label">Note (FR):</label>
+                            <input type="text" class="form-control" id="note_fr" name="note_fr" value="{{ contact_point['note']['fr'] }}">
+                        </div>
+                        
+                        <!-- Document Links -->
+                        <hr>
+                        <h4 class="mb-3">Documents</h4>
+                        <div id="document-links-container-fr">
+                            {% if document_links %}
+                                {% for doc in document_links %}
+                                <div class="document-link-row row mb-3">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control" name="doc_label[]" value="{{ doc.label }}" placeholder="Nom du document">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" name="doc_href[]" value="{{ doc.href }}" placeholder="URL du document">
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-danger remove-doc-btn"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Aucun document trouvé. Ajoutez-en avec le bouton ci-dessous.
+                                </div>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-outline-primary mt-3 add-document-btn">
+                            <i class="bi bi-plus-circle"></i> Ajouter un document
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Italian Tab -->
+            <div class="tab-pane fade" id="italian" role="tabpanel" aria-labelledby="italian-tab">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="mb-0">Italian Content</h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- API Metadata -->
+                        <h4 class="mb-3">API Metadata</h4>
+                        <div class="mb-3">
+                            <label for="title_it" class="form-label">Title (IT):</label>
+                            <input type="text" class="form-control" id="title_it" name="title_it" value="{{ translations['it']['title'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="description_it" class="form-label">Description (IT):</label>
+                            <textarea class="form-control" id="description_it" name="description_it" rows="12">{{ translations['it']['description'] }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="keywords_it" class="form-label">Keywords (IT):</label>
+                            <input type="text" class="form-control" id="keywords_it" name="keywords_it" value="{{ translations['it']['keywords']|join(', ') }}">
+                            <small class="form-text text-muted">Comma-separated keywords</small>
+                        </div>
+                        
+                        <!-- Contact Point -->
+                        <hr>
+                        <h4 class="mb-3">Contact Point</h4>
+                        <div class="mb-3">
+                            <label for="org_it" class="form-label">Organization (IT):</label>
+                            <input type="text" class="form-control" id="org_it" name="org_it" value="{{ contact_point['org']['it'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="adr_it" class="form-label">Address (IT):</label>
+                            <input type="text" class="form-control" id="adr_it" name="adr_it" value="{{ contact_point['adrWork']['it'] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="note_it" class="form-label">Note (IT):</label>
+                            <input type="text" class="form-control" id="note_it" name="note_it" value="{{ contact_point['note']['it'] }}">
+                        </div>
+                        
+                        <!-- Document Links -->
+                        <hr>
+                        <h4 class="mb-3">Documenti</h4>
+                        <div id="document-links-container-it">
+                            {% if document_links %}
+                                {% for doc in document_links %}
+                                <div class="document-link-row row mb-3">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control" name="doc_label[]" value="{{ doc.label }}" placeholder="Nome documento">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" name="doc_href[]" value="{{ doc.href }}" placeholder="URL documento">
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-danger remove-doc-btn"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Nessun documento trovato. Aggiungine uno con il pulsante qui sotto.
+                                </div>
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-outline-primary mt-3 add-document-btn">
+                            <i class="bi bi-plus-circle"></i> Aggiungi documento
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action buttons and JSON Preview -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('translation') }}" class="btn btn-secondary">Back</a>
+                    <div>
+                        <button type="button" class="btn btn-success me-2" onclick="showTokenModal()">
+                            <i class="bi bi-cloud-upload"></i> Send to I14Y
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="window.location.href='/download_json'">
+                            <i class="bi bi-download"></i> Download JSON
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- JSON Preview collapsible section -->
+        <div class="card mb-4">
+            <div class="card-header" id="jsonPreviewHeader">
+                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#jsonPreviewContent" aria-expanded="false" aria-controls="jsonPreviewContent">
+                    <i class="bi bi-code-square"></i> Show JSON Preview
+                </button>
+            </div>
+            <div id="jsonPreviewContent" class="collapse">
+                <div class="card-body">
+                    <pre class="json-preview">{{ json_preview }}</pre>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Token Input Modal -->
+<div class="modal fade" id="tokenModal" tabindex="-1" aria-labelledby="tokenModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tokenModalLabel">I14Y API Access Token</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <small>
+                        <strong>How to get your I14Y token:</strong><br>
+                        1. Log in to the <a href="https://input.i14y.admin.ch" target="_blank">I14Y platform</a><br>
+                        2. Click on your user symbol in the top right corner<br>
+                        3. Copy the access token (format: "Bearer xxxxxxx")<br>
+                        <em>Note: The token will only be used for this request and immediately deleted.</em>
+                    </small>
+                </div>
+                <div class="mb-3">
+                    <label for="apiToken" class="form-label">Access Token:</label>
+                    <input type="password" class="form-control" id="apiToken" placeholder="Bearer xxxxxxx" autocomplete="off">
+                </div>
+                <div id="tokenError" class="alert alert-danger d-none"></div>
+                <div id="tokenSuccess" class="alert alert-success d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="submitToI14Y()" id="submitBtn">
+                    <span id="submitBtnText">Send to I14Y</span>
+                    <span id="submitBtnSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Bootstrap 5 tabs
+        const triggerTabList = document.querySelectorAll('#reviewTabs button');
+        triggerTabList.forEach(triggerEl => {
+            const tabTrigger = new bootstrap.Tab(triggerEl);
+            triggerEl.addEventListener('click', event => {
+                event.preventDefault();
+                tabTrigger.show();
+            });
+        });
+
+        // Add document link button
+        document.getElementById('add-document-btn').addEventListener('click', function() {
+            const container = document.getElementById('document-links-container');
+            const newRow = document.createElement('div');
+            newRow.className = 'document-link-row row mb-3';
+            newRow.innerHTML = `
+                <div class="col-md-5">
+                    <input type="text" class="form-control" name="doc_label[]" placeholder="Document Label">
+                </div>
+                <div class="col-md-6">
+                    <input type="text" class="form-control" name="doc_href[]" placeholder="Document URL">
+                </div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-danger remove-doc-btn"><i class="bi bi-trash"></i></button>
+                </div>
+            `;
+            container.appendChild(newRow);
+            
+            // Add event listener for the new remove button
+            newRow.querySelector('.remove-doc-btn').addEventListener('click', function() {
+                container.removeChild(newRow);
+            });
+        });
+        
+        // Remove document link buttons
+        document.querySelectorAll('.remove-doc-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const row = this.closest('.document-link-row');
+                row.parentNode.removeChild(row);
+            });
+        });
+
+        // Add document link button for all language tabs
+        document.querySelectorAll('.add-document-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                // Find the correct container for this tab
+                const container = this.closest('.card-body').querySelector('.document-link-row') ?
+                    this.closest('.card-body').querySelector('.document-link-row').parentNode :
+                    this.closest('.card-body').querySelector('div[id^="document-links-container"]');
+                const newRow = document.createElement('div');
+                newRow.className = 'document-link-row row mb-3';
+                newRow.innerHTML = `
+                    <div class="col-md-5">
+                        <input type="text" class="form-control" name="doc_label[]" placeholder="${this.closest('.card-body').querySelector('input[name^="doc_label"]')?.placeholder || 'Document Label'}">
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" name="doc_href[]" placeholder="${this.closest('.card-body').querySelector('input[name^="doc_href"]')?.placeholder || 'Document URL'}">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-danger remove-doc-btn"><i class="bi bi-trash"></i></button>
+                    </div>
+                `;
+                container.appendChild(newRow);
+                newRow.querySelector('.remove-doc-btn').addEventListener('click', function() {
+                    container.removeChild(newRow);
+                });
+            });
+        });
+
+        // Remove document link buttons for all tabs
+        document.querySelectorAll('.remove-doc-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const row = this.closest('.document-link-row');
+                row.parentNode.removeChild(row);
+            });
+        });
+
+        // Autosave logic
+        const reviewForm = document.getElementById('reviewForm');
+        let autosaveTimeout = null;
+        function autosaveReview() {
+            if (autosaveTimeout) clearTimeout(autosaveTimeout);
+            autosaveTimeout = setTimeout(() => {
+                const formData = new FormData(reviewForm);
+                fetch('/autosave_review', {
+                    method: 'POST',
+                    body: formData
+                });
+            }, 400); // debounce
+        }
+        // Listen to all input, textarea, and select changes
+        reviewForm.querySelectorAll('input, textarea, select').forEach(el => {
+            el.addEventListener('input', autosaveReview);
+            el.addEventListener('change', autosaveReview);
+        });
+    });
+
+    function showTokenModal() {
+        const modal = new bootstrap.Modal(document.getElementById('tokenModal'));
+        // Clear previous inputs and messages
+        document.getElementById('apiToken').value = '';
+        document.getElementById('tokenError').classList.add('d-none');
+        document.getElementById('tokenSuccess').classList.add('d-none');
+        modal.show();
+    }
+
+    function submitToI14Y() {
+        const token = document.getElementById('apiToken').value.trim();
+        const errorDiv = document.getElementById('tokenError');
+        const successDiv = document.getElementById('tokenSuccess');
+        const submitBtn = document.getElementById('submitBtn');
+        const submitBtnText = document.getElementById('submitBtnText');
+        const submitBtnSpinner = document.getElementById('submitBtnSpinner');
+
+        // Reset messages
+        errorDiv.classList.add('d-none');
+        successDiv.classList.add('d-none');
+
+        // Validate token format
+        if (!token) {
+            errorDiv.textContent = 'Please enter your access token.';
+            errorDiv.classList.remove('d-none');
+            return;
+        }
+
+        if (!token.toLowerCase().startsWith('bearer ')) {
+            errorDiv.textContent = 'Token must start with "Bearer " (e.g., "Bearer xxxxxxx").';
+            errorDiv.classList.remove('d-none');
+            return;
+        }
+
+        // Show loading state
+        submitBtn.disabled = true;
+        submitBtnText.textContent = 'Sending...';
+        submitBtnSpinner.classList.remove('d-none');
+
+        // Send request to backend
+        fetch('/submit_to_i14y', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                token: token
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Compose the direct link if dataset_id is present
+                let linkHtml = '';
+                if (data.dataset_id) {
+                    const url = `https://input.i14y.admin.ch/catalog/dataservices/${data.dataset_id}`;
+                    linkHtml = `<br><a href="${url}" target="_blank" rel="noopener" class="mt-2 btn btn-outline-primary btn-sm">Open in I14Y</a>`;
+                }
+                successDiv.innerHTML = `
+                    <strong>Success!</strong> Your API has been submitted to I14Y.<br>
+                    <small>Dataset ID: ${data.dataset_id || 'Generated automatically'}</small>
+                    ${linkHtml}
+                `;
+                successDiv.classList.remove('d-none');
+                
+                // Clear the token input for security
+                document.getElementById('apiToken').value = '';
+                
+                // --- REMOVE auto-close modal ---
+                // setTimeout(() => {
+                //     bootstrap.Modal.getInstance(document.getElementById('tokenModal')).hide();
+                // }, 3000);
+            } else {
+                errorDiv.textContent = data.error || 'An error occurred while submitting to I14Y.';
+                errorDiv.classList.remove('d-none');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            errorDiv.textContent = 'Network error occurred. Please try again.';
+            errorDiv.classList.remove('d-none');
+        })
+        .finally(() => {
+            // Reset button state
+            submitBtn.disabled = false;
+            submitBtnText.textContent = 'Send to I14Y';
+            submitBtnSpinner.classList.add('d-none');
+        });
+    }
+
+    // Allow Enter key to submit in token input
+    document.getElementById('apiToken').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            submitToI14Y();
+        }
+    });
+</script>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .tab-pane {
+        padding: 1rem 0;
+    }
+    
+    .card-header.bg-primary {
+        color: white;
+    }
+    
+    .json-preview {
+        max-height: 400px;
+        overflow: auto;
+        font-size: 0.9rem;
+        background-color: #f8f9fa;
+        padding: 1rem;
+    }
+    
+    /* Make form elements consistent */
+    textarea.form-control {
+        min-height: 200px;
+    }
+    
+    /* Card header styles */
+    .card-header .btn-link {
+        color: #0d6efd;
+        text-decoration: none;
+        padding: 0;
+    }
+    
+    /* Add hover effect to tabs */
+    #reviewTabs .nav-link:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+</style>
+{% endblock %}

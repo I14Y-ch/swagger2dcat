@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Swagger to DCAT Converter{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">Swagger to DCAT Converter</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="progress-container">
+            {% set steps = [
+                {'num': 1, 'label': 'URL', 'route': 'url'},
+                {'num': 2, 'label': 'AI', 'route': 'ai'},
+                {'num': 3, 'label': 'Translation', 'route': 'translation'},
+                {'num': 4, 'label': 'Upload', 'route': 'upload'}
+            ] %}
+            {% for step in steps %}
+                {% set status = 'active' if current_step == step.num else 'completed' if current_step > step.num else '' %}
+                {% set is_clickable = current_step > step.num or current_step == step.num %}
+                
+                {% if is_clickable %}
+                    <a href="{{ url_for(step.route, from_step=current_step) }}" class="step-link">
+                        <div class="step {{ status }} clickable">
+                            <div class="step-number">{{ step.num }}</div>
+                            <div class="step-label">{{ step.label }}</div>
+                        </div>
+                    </a>
+                {% else %}
+                    <div class="step {{ status }}">
+                        <div class="step-number">{{ step.num }}</div>
+                        <div class="step-label">{{ step.label }}</div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    {% block content %}{% endblock %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
