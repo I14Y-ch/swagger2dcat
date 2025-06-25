@@ -14,8 +14,10 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
+ENV FLASK_RUN_PORT=8080
+ENV PORT=8080
 
-# Expose the port
+# Expose the port - changed from 5000 to 8080
 EXPOSE 8080
 
 # Command to run the application
