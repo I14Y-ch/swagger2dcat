@@ -8,6 +8,7 @@ import tempfile
 import pickle
 import requests
 import re
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Setup environment first before any other imports
 from utils.env_setup import setup_environment
@@ -42,7 +43,13 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_storage')
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
-Session(app)  # <-- Initialize Flask-Session
+app.config['SESSION_COOKIE_PATH'] = '/swagger2dcat'  # <-- Ensure cookie is valid for the app prefix
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = True  # If using HTTPS
+Session(app)
+
+# Apply ProxyFix for correct proxy handling (important for Digital Ocean)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
 # Apply URL prefix to all routes
 app.config['APPLICATION_ROOT'] = '/swagger2dcat'
