@@ -1,0 +1,51 @@
+{
+  "en": {
+    "title": "TERMDAT 3.0 - Public API",
+    "description": "The TERMDAT 3.0 Public API provides access to a comprehensive data catalog of around 400,000 multilingual specialized terms in the four national languages of Switzerland (German, French, Italian, Romansh) and English. The API allows users to retrieve information on classifications, collections, individual entries, conduct searches based on specified parameters, and check the system status. By using this API, developers and researchers can access and leverage the vast repository of terminological data for various purposes such as language translation, domain-specific research, content enrichment, and terminology standardization. The API supports GET requests for retrieving information. It caters to linguists, translators, researchers, and developers working with multilingual data sets, terminologies, and linguistic resources. One of the distinctive features of this API is its focus on multilingual terminologies and specialized vocabularies, making it a valuable resource for language-related projects and cross-cultural communication initiatives.",
+    "keywords": [
+      "terminology",
+      "multilingual",
+      "specialized terms",
+      "data catalog",
+      "linguistics"
+    ]
+  },
+  "de": {
+    "title": "TERMDAT 3.0 - Öffentliche API",
+    "description": "Die TERMDAT 3.0 Public API ermöglicht den Zugriff auf einen umfassenden Datenkatalog mit rund 400'000 mehrsprachigen Fachbegriffen in den vier Landessprachen der Schweiz (Deutsch, Französisch, Italienisch, Rätoromanisch) und Englisch. Die API ermöglicht es den Benutzern, Informationen über Klassifikationen, Sammlungen und einzelne Einträge abzurufen, nach bestimmten Parametern zu suchen und den Systemstatus zu überprüfen. Mithilfe dieser API können Entwickler und Forscher auf den umfangreichen Bestand an terminologischen Daten zugreifen und ihn für verschiedene Zwecke nutzen, z. B. für Sprachübersetzungen, bereichsspezifische Recherchen, Inhaltsanreicherung und Terminologiestandardisierung. Die API unterstützt GET-Anfragen zum Abrufen von Informationen. Sie richtet sich an Linguisten, Übersetzer, Forscher und Entwickler, die mit mehrsprachigen Datensätzen, Terminologien und sprachlichen Ressourcen arbeiten. Eines der besonderen Merkmale dieser API ist ihr Schwerpunkt auf mehrsprachigen Terminologien und Fachvokabularen, was sie zu einer wertvollen Ressource für sprachbezogene Projekte und kulturübergreifende Kommunikationsinitiativen macht.",
+    "keywords": [
+      "Terminologie",
+      "mehrsprachig",
+      "Fachbegriffe",
+      "Datenkatalog",
+      "Linguistik"
+    ]
+  },
+  "fr": {
+    "title": "TERMDAT 3.0 - API publique",
+    "description": "L'API publique TERMDAT 3.0 donne accès à un catalogue de données complet d'environ 400 000 termes spécialisés multilingues dans les quatre langues nationales de la Suisse (allemand, français, italien, romanche) et en anglais. L'API permet aux utilisateurs d'obtenir des informations sur les classifications, les collections et les entrées individuelles, d'effectuer des recherches sur la base de paramètres spécifiés et de vérifier l'état du système. En utilisant cette API, les développeurs et les chercheurs peuvent accéder à la vaste base de données terminologiques et l'exploiter à des fins diverses telles que la traduction linguistique, la recherche spécifique à un domaine, l'enrichissement du contenu et la normalisation terminologique. L'API prend en charge les requêtes GET pour récupérer les informations. Elle s'adresse aux linguistes, traducteurs, chercheurs et développeurs qui travaillent avec des ensembles de données multilingues, des terminologies et des ressources linguistiques. L'une des caractéristiques de cette API est qu'elle se concentre sur les terminologies multilingues et les vocabulaires spécialisés, ce qui en fait une ressource précieuse pour les projets liés aux langues et les initiatives de communication interculturelle.",
+    "keywords": [
+      "terminologie",
+      "multilingue",
+      "termes spécialisés",
+      "catalogue de données",
+      "linguistique"
+    ]
+  },
+  "it": {
+    "title": "TERMDAT 3.0 - API pubblica",
+    "description": "L'API pubblica di TERMDAT 3.0 fornisce l'accesso a un catalogo di dati completo di circa 400.000 termini specialistici multilingue nelle quattro lingue nazionali della Svizzera (tedesco, francese, italiano, romancio) e in inglese. L'API consente agli utenti di recuperare informazioni su classificazioni, collezioni, singole voci, di effettuare ricerche in base a parametri specifici e di controllare lo stato del sistema. Utilizzando questa API, gli sviluppatori e i ricercatori possono accedere e sfruttare il vasto archivio di dati terminologici per vari scopi, come la traduzione linguistica, la ricerca specifica del dominio, l'arricchimento dei contenuti e la standardizzazione terminologica. L'API supporta le richieste GET per il recupero delle informazioni. Si rivolge a linguisti, traduttori, ricercatori e sviluppatori che lavorano con insiemi di dati multilingue, terminologie e risorse linguistiche. Una delle caratteristiche distintive di questa API è la sua attenzione alle terminologie multilingue e ai vocabolari specializzati, che la rendono una risorsa preziosa per i progetti legati alle lingue e alle iniziative di comunicazione interculturale.",
+    "keywords": [
+      "terminologia",
+      "multilingue",
+      "termini specialistici",
+      "catalogo dati",
+      "linguistica"
+    ]
+  },
+  "rm": {
+    "title": "",
+    "description": "",
+    "keywords": []
+  }
+}

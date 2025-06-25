@@ -1,0 +1,51 @@
+{
+  "en": {
+    "title": "TERMDAT 3.0 Public Data Catalog API",
+    "description": "The TERMDAT 3.0 Public Data Catalog API provides access to a comprehensive database of over 400,000 multilingual specialized terms used by the Swiss Federal Administration. This API allows users to retrieve information about classifications, collections, specific entries, and conduct searches based on various parameters. The API supports GET requests for retrieving data related to classifications, collections, entries, and search results. It also includes a system status endpoint. Users of this API could include researchers, linguists, translators, government agencies, language enthusiasts, and developers building applications that require access to specialized multilingual terminology. The API offers domain-specific features for accessing and managing specialized terminology in the official languages of Switzerland and English, facilitating precise communication and data retrieval.",
+    "keywords": [
+      "terminology",
+      "multilingual",
+      "specialized terms",
+      "Swiss Federal Administration",
+      "data catalog"
+    ]
+  },
+  "de": {
+    "title": "TERMDAT 3.0 Öffentlicher Datenkatalog API",
+    "description": "Die TERMDAT 3.0 Public Data Catalog API bietet Zugang zu einer umfassenden Datenbank mit über 400.000 mehrsprachigen Fachbegriffen, die von der Schweizerischen Bundesverwaltung verwendet werden. Diese API ermöglicht es den Benutzern, Informationen über Klassifikationen, Sammlungen und spezifische Einträge abzurufen und eine Suche anhand verschiedener Parameter durchzuführen. Die API unterstützt GET-Anfragen zum Abrufen von Daten zu Klassifikationen, Sammlungen, Einträgen und Suchergebnissen. Sie enthält auch einen Endpunkt für den Systemstatus. Zu den Nutzern dieser API gehören Forscher, Linguisten, Übersetzer, Regierungsbehörden, Sprachenthusiasten und Entwickler, die Anwendungen erstellen, die Zugriff auf mehrsprachige Fachterminologie benötigen. Die API bietet bereichsspezifische Funktionen für den Zugriff auf und die Verwaltung von Fachterminologie in den Amtssprachen der Schweiz und Englisch und erleichtert so die präzise Kommunikation und Datenabfrage.",
+    "keywords": [
+      "Terminologie",
+      "mehrsprachig",
+      "Fachbegriffe",
+      "Schweizerische Bundesverwaltung",
+      "Datenkatalog"
+    ]
+  },
+  "fr": {
+    "title": "TERMDAT 3.0 Catalogue de données publiques API",
+    "description": "L'API du catalogue de données publiques TERMDAT 3.0 donne accès à une base de données complète de plus de 400 000 termes spécialisés multilingues utilisés par l'administration fédérale suisse. Cette API permet aux utilisateurs de récupérer des informations sur les classifications, les collections et les entrées spécifiques, et d'effectuer des recherches en fonction de divers paramètres. L'API prend en charge les requêtes GET pour récupérer les données relatives aux classifications, aux collections, aux entrées et aux résultats de la recherche. Elle comprend également un point de terminaison relatif à l'état du système. Les utilisateurs de cette API peuvent être des chercheurs, des linguistes, des traducteurs, des agences gouvernementales, des passionnés de langues et des développeurs d'applications nécessitant l'accès à une terminologie multilingue spécialisée. L'API offre des fonctionnalités spécifiques à un domaine pour accéder et gérer la terminologie spécialisée dans les langues officielles de la Suisse et de l'anglais, facilitant ainsi une communication précise et la recherche de données.",
+    "keywords": [
+      "terminologie",
+      "multilingue",
+      "termes spécialisés",
+      "Administration fédérale suisse",
+      "catalogue de données"
+    ]
+  },
+  "it": {
+    "title": "TERMDAT 3.0 Catalogo pubblico dei dati API",
+    "description": "L'API TERMDAT 3.0 Public Data Catalog fornisce l'accesso a un database completo di oltre 400.000 termini specialistici multilingue utilizzati dall'Amministrazione federale svizzera. Questa API consente agli utenti di recuperare informazioni su classificazioni, collezioni, voci specifiche e di effettuare ricerche in base a vari parametri. L'API supporta le richieste GET per recuperare i dati relativi a classificazioni, raccolte, voci e risultati delle ricerche. Include anche un endpoint di stato del sistema. Gli utenti di questa API potrebbero essere ricercatori, linguisti, traduttori, agenzie governative, appassionati di lingue e sviluppatori di applicazioni che richiedono l'accesso a una terminologia multilingue specializzata. L'API offre funzionalità specifiche per l'accesso e la gestione della terminologia specializzata nelle lingue ufficiali della Svizzera e dell'inglese, facilitando una comunicazione precisa e il recupero dei dati.",
+    "keywords": [
+      "terminologia",
+      "multilingue",
+      "termini specialistici",
+      "Amministrazione federale svizzera",
+      "catalogo dati"
+    ]
+  },
+  "rm": {
+    "title": "",
+    "description": "",
+    "keywords": []
+  }
+}

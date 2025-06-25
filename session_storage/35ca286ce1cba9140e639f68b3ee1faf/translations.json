@@ -1,0 +1,51 @@
+{
+  "en": {
+    "title": "TERMDAT 3.0 Public API",
+    "description": "The TERMDAT 3.0 Public API serves as a gateway to the Swiss Federal Administration's Terminology Database, containing approximately 400,000 multilingual technical term entries in German, French, Italian, Romansh, and English. This API allows users to access classifications, collections, specific entries, and perform searches based on various parameters. It supports GET operations for retrieving classifications, collections, entries, and search results. The API caters to linguists, translators, researchers, and anyone in need of specialized terminology across multiple languages. Users can leverage this API to enrich their content with accurate and consistent technical terminology. Noteworthy is the API's focus on multilingual support and its specificity in the domain of specialized terminology.",
+    "keywords": [
+      "multilingual",
+      "terminology",
+      "Swiss Federal Administration",
+      "technical terms",
+      "linguistics"
+    ]
+  },
+  "de": {
+    "title": "TERMDAT 3.0 Öffentliche API",
+    "description": "Die TERMDAT 3.0 Public API dient als Gateway zur Terminologiedatenbank der Schweizerischen Bundesverwaltung, die rund 400'000 mehrsprachige Fachbegriffe in Deutsch, Französisch, Italienisch, Rätoromanisch und Englisch enthält. Mit dieser API können Benutzer auf Klassifikationen, Sammlungen und spezifische Einträge zugreifen und Suchen anhand verschiedener Parameter durchführen. Sie unterstützt GET-Operationen zum Abrufen von Klassifikationen, Sammlungen, Einträgen und Suchergebnissen. Die API richtet sich an Linguisten, Übersetzer, Forscher und alle, die Bedarf an Fachterminologie in mehreren Sprachen haben. Benutzer können diese API nutzen, um ihre Inhalte mit genauer und konsistenter Fachterminologie anzureichern. Bemerkenswert ist der Schwerpunkt der API auf der mehrsprachigen Unterstützung und ihrer Besonderheit im Bereich der Fachterminologie.",
+    "keywords": [
+      "mehrsprachig",
+      "Terminologie",
+      "Schweizerische Bundesverwaltung",
+      "Fachbegriffe",
+      "Linguistik"
+    ]
+  },
+  "fr": {
+    "title": "TERMDAT 3.0 API publique",
+    "description": "L'API publique TERMDAT 3.0 sert de passerelle vers la base de données terminologique de l'administration fédérale suisse, qui contient environ 400 000 entrées de termes techniques multilingues en allemand, français, italien, romanche et anglais. Cette API permet aux utilisateurs d'accéder aux classifications, aux collections, aux entrées spécifiques et d'effectuer des recherches basées sur différents paramètres. Elle prend en charge les opérations GET pour récupérer les classifications, les collections, les entrées et les résultats de la recherche. L'API s'adresse aux linguistes, aux traducteurs, aux chercheurs et à toute personne ayant besoin d'une terminologie spécialisée dans plusieurs langues. Les utilisateurs peuvent exploiter cette API pour enrichir leur contenu avec une terminologie technique précise et cohérente. Il convient de noter que l'API met l'accent sur la prise en charge multilingue et sa spécificité dans le domaine de la terminologie spécialisée.",
+    "keywords": [
+      "multilingue",
+      "terminologie",
+      "Administration fédérale suisse",
+      "termes techniques",
+      "linguistique"
+    ]
+  },
+  "it": {
+    "title": "API pubblica TERMDAT 3.0",
+    "description": "L'API pubblica TERMDAT 3.0 è una porta d'accesso alla banca dati terminologica dell'Amministrazione federale svizzera, che contiene circa 400.000 voci di termini tecnici multilingue in tedesco, francese, italiano, romancio e inglese. Questa API consente agli utenti di accedere a classificazioni, raccolte, voci specifiche e di effettuare ricerche in base a vari parametri. Supporta le operazioni GET per il recupero di classificazioni, raccolte, voci e risultati di ricerca. L'API si rivolge a linguisti, traduttori, ricercatori e a chiunque abbia bisogno di terminologia specializzata in più lingue. Gli utenti possono sfruttare questa API per arricchire i loro contenuti con una terminologia tecnica accurata e coerente. Degna di nota è l'attenzione dell'API al supporto multilingue e la sua specificità nel campo della terminologia specializzata.",
+    "keywords": [
+      "multilingue",
+      "terminologia",
+      "Amministrazione federale svizzera",
+      "termini tecnici",
+      "linguistica"
+    ]
+  },
+  "rm": {
+    "title": "",
+    "description": "",
+    "keywords": []
+  }
+}

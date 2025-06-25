@@ -1,0 +1,51 @@
+{
+  "en": {
+    "title": "TERMDAT Public API",
+    "description": "The TERMDAT Public API, version 2, provides access to the Swiss Federal Administration's Terminology Database, containing approximately 400,000 multilingual specialized terms in German, French, Italian, Romansh, and English. The API allows users to retrieve classifications, collections, specific entries, and conduct searches based on various parameters. Through the GET operations, users can fetch lists of available classifications and collections, retrieve entries by ID, and search for specific terms. This API caters to linguists, translators, researchers, and developers seeking comprehensive multilingual terminology resources. Technical features include language-specific search options, detailed metadata for each entry, and efficient retrieval of structured terminology data.",
+    "keywords": [
+      "Terminology",
+      "Multilingual",
+      "Database",
+      "Swiss Federal Administration",
+      "Specialized Terms"
+    ]
+  },
+  "de": {
+    "title": "TERMDAT Öffentliche API",
+    "description": "Die TERMDAT Public API, Version 2, ermöglicht den Zugriff auf die Terminologiedatenbank der Schweizerischen Bundesverwaltung, die rund 400'000 mehrsprachige Fachbegriffe in Deutsch, Französisch, Italienisch, Rätoromanisch und Englisch enthält. Die API ermöglicht es den Benutzern, Klassifikationen, Sammlungen und spezifische Einträge abzurufen und eine Suche nach verschiedenen Parametern durchzuführen. Über die GET-Operationen können die Benutzer Listen der verfügbaren Klassifikationen und Sammlungen abrufen, Einträge nach ID abrufen und nach bestimmten Begriffen suchen. Diese API richtet sich an Linguisten, Übersetzer, Forscher und Entwickler, die umfassende mehrsprachige Terminologieressourcen suchen. Zu den technischen Merkmalen gehören sprachspezifische Suchoptionen, detaillierte Metadaten für jeden Eintrag und ein effizienter Abruf von strukturierten Terminologiedaten.",
+    "keywords": [
+      "Terminologie",
+      "Mehrsprachig",
+      "Datenbank",
+      "Schweizerische Bundesverwaltung",
+      "Fachbegriffe"
+    ]
+  },
+  "fr": {
+    "title": "TERMDAT Public API",
+    "description": "L'API publique TERMDAT, version 2, donne accès à la base de données terminologique de l'administration fédérale suisse, qui contient environ 400 000 termes spécialisés multilingues en allemand, français, italien, romanche et anglais. L'API permet aux utilisateurs de récupérer des classifications, des collections, des entrées spécifiques et d'effectuer des recherches en fonction de divers paramètres. Grâce aux opérations GET, les utilisateurs peuvent récupérer des listes de classifications et de collections disponibles, récupérer des entrées par ID et rechercher des termes spécifiques. Cette API s'adresse aux linguistes, traducteurs, chercheurs et développeurs à la recherche de ressources terminologiques multilingues complètes. Les caractéristiques techniques comprennent des options de recherche spécifiques aux langues, des métadonnées détaillées pour chaque entrée et une récupération efficace des données terminologiques structurées.",
+    "keywords": [
+      "Terminologie",
+      "Multilingue",
+      "Base de données",
+      "Administration fédérale suisse",
+      "Termes spécialisés"
+    ]
+  },
+  "it": {
+    "title": "API pubblica TERMDAT",
+    "description": "L'API pubblica TERMDAT, versione 2, consente di accedere al database terminologico dell'Amministrazione federale svizzera, contenente circa 400.000 termini specialistici multilingue in tedesco, francese, italiano, romancio e inglese. L'API consente agli utenti di recuperare classificazioni, raccolte, voci specifiche e di effettuare ricerche in base a vari parametri. Attraverso le operazioni GET, gli utenti possono recuperare gli elenchi delle classificazioni e delle raccolte disponibili, le voci per ID e la ricerca di termini specifici. Questa API si rivolge a linguisti, traduttori, ricercatori e sviluppatori alla ricerca di risorse terminologiche multilingue complete. Le caratteristiche tecniche includono opzioni di ricerca specifiche per ogni lingua, metadati dettagliati per ogni voce e un efficiente recupero dei dati terminologici strutturati.",
+    "keywords": [
+      "Terminologia",
+      "Multilingua",
+      "Database",
+      "Amministrazione federale svizzera",
+      "Termini specialistici"
+    ]
+  },
+  "rm": {
+    "title": "",
+    "description": "",
+    "keywords": []
+  }
+}

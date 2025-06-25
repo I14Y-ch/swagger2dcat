@@ -1,0 +1,1 @@
+# Utils package for the swagger2dcat2 application

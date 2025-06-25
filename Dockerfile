@@ -17,7 +17,7 @@ ENV FLASK_ENV=production
 ENV FLASK_RUN_PORT=8080
 ENV PORT=8080
 
-# Expose the port - changed from 5000 to 8080
+# Expose the port
 EXPOSE 8080
 
 # Command to run the application

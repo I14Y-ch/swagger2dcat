@@ -23,8 +23,16 @@ except ImportError:
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     DEEPL_API_KEY = os.getenv('DEEPL_API_KEY')
 
+# Create Flask app with the correct URL prefix
+app = Flask(__name__, 
+            static_url_path='/swagger2dcat/static',  # Update static path
+            template_folder='templates'
+           )
+
+# Apply URL prefix to all routes
+app.config['APPLICATION_ROOT'] = '/swagger2dcat'
+
 # Initialize Flask app
-app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'swagger2dcat-secret-key')
 
 # Create session directory

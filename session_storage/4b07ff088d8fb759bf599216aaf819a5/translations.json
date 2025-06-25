@@ -1,0 +1,51 @@
+{
+  "en": {
+    "title": "TERMDAT 3.0 Public Data Catalog API",
+    "description": "The TERMDAT 3.0 Public Data Catalog API is a comprehensive tool that provides access to a vast collection of around 400,000 multilingual specialized terms, covering German, French, Italian, Romansh, and English languages. This API allows users to retrieve information on classifications, collections, specific entries, and conduct searches based on various parameters. It supports five main operations: GET Classification, GET Collection, GET Entry, GET Search, and GET System Status. Users such as researchers, translators, language enthusiasts, and developers can leverage this API to access and utilize specialized terminology efficiently. With its domain-specific features, the API facilitates seamless integration of specialized language resources into various applications, aiding in accurate data interpretation and translation.",
+    "keywords": [
+      "multilingual",
+      "specialized terms",
+      "terminology database",
+      "language resources",
+      "API"
+    ]
+  },
+  "de": {
+    "title": "TERMDAT 3.0 Öffentlicher Datenkatalog API",
+    "description": "Die TERMDAT 3.0 Public Data Catalog API ist ein umfassendes Tool, das Zugang zu einer umfangreichen Sammlung von rund 400.000 mehrsprachigen Fachbegriffen in den Sprachen Deutsch, Französisch, Italienisch, Rätoromanisch und Englisch bietet. Diese API ermöglicht es den Benutzern, Informationen über Klassifikationen, Sammlungen und spezifische Einträge abzurufen und eine Suche anhand verschiedener Parameter durchzuführen. Sie unterstützt fünf Hauptoperationen: GET Klassifikation, GET Sammlung, GET Eintrag, GET Suche und GET Systemstatus. Benutzer wie Forscher, Übersetzer, Sprachenthusiasten und Entwickler können diese API nutzen, um effizient auf Fachterminologie zuzugreifen und diese zu verwenden. Mit ihren domänenspezifischen Funktionen erleichtert die API die nahtlose Integration spezialisierter Sprachressourcen in verschiedene Anwendungen und hilft bei der genauen Interpretation und Übersetzung von Daten.",
+    "keywords": [
+      "mehrsprachig",
+      "Fachbegriffe",
+      "Terminologiedatenbank",
+      "Sprachressourcen",
+      "API"
+    ]
+  },
+  "fr": {
+    "title": "TERMDAT 3.0 Catalogue de données publiques API",
+    "description": "L'API du catalogue de données publiques TERMDAT 3.0 est un outil complet qui donne accès à une vaste collection d'environ 400 000 termes spécialisés multilingues, couvrant les langues allemande, française, italienne, romanche et anglaise. Cette API permet aux utilisateurs de récupérer des informations sur les classifications, les collections et les entrées spécifiques, et d'effectuer des recherches en fonction de divers paramètres. Elle prend en charge cinq opérations principales : GET Classification, GET Collection, GET Entry, GET Search et GET System Status. Les utilisateurs tels que les chercheurs, les traducteurs, les passionnés de langues et les développeurs peuvent tirer parti de cette API pour accéder à la terminologie spécialisée et l'utiliser efficacement. Grâce à ses caractéristiques propres à chaque domaine, l'API facilite l'intégration transparente des ressources linguistiques spécialisées dans diverses applications, contribuant ainsi à l'interprétation et à la traduction précises des données.",
+    "keywords": [
+      "multilingue",
+      "termes spécialisés",
+      "base de données terminologiques",
+      "ressources linguistiques",
+      "API"
+    ]
+  },
+  "it": {
+    "title": "TERMDAT 3.0 Catalogo pubblico dei dati API",
+    "description": "L'API del catalogo pubblico dei dati TERMDAT 3.0 è uno strumento completo che consente di accedere a una vasta raccolta di circa 400.000 termini specialistici multilingue, in lingua tedesca, francese, italiana, romancia e inglese. Questa API consente agli utenti di recuperare informazioni su classificazioni, collezioni, voci specifiche e di effettuare ricerche in base a vari parametri. Supporta cinque operazioni principali: GET Classification, GET Collection, GET Entry, GET Search e GET System Status. Utenti come ricercatori, traduttori, appassionati di lingue e sviluppatori possono sfruttare questa API per accedere e utilizzare in modo efficiente la terminologia specializzata. Grazie alle sue caratteristiche specifiche, l'API facilita la perfetta integrazione delle risorse linguistiche specializzate in varie applicazioni, favorendo un'interpretazione e una traduzione accurate dei dati.",
+    "keywords": [
+      "multilingue",
+      "termini specialistici",
+      "database terminologico",
+      "risorse linguistiche",
+      "API"
+    ]
+  },
+  "rm": {
+    "title": "",
+    "description": "",
+    "keywords": []
+  }
+}

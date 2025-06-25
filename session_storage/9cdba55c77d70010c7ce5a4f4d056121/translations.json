@@ -1,0 +1,51 @@
+{
+  "en": {
+    "title": "TERMDAT 3.0 Public Data Catalog API",
+    "description": "The TERMDAT 3.0 Public Data Catalog API provides access to a comprehensive database of around 400,000 multilingual specialized terms in the four official languages of Switzerland - German, French, Italian, Romansh - and English. This API allows users to retrieve information on classifications, collections, specific entries, conduct searches based on various parameters, and check the system status. It supports GET methods for retrieving data related to classifications, collections, entries, and search results. This API is beneficial for researchers, linguists, translators, government agencies, and anyone needing specialized terminology across multiple languages. The API is designed to facilitate easy access to diverse terminologies for various domains, including multilingual communication, translation, terminology standardization, and cross-cultural understanding.",
+    "keywords": [
+      "multilingual",
+      "terminology",
+      "specialized terms",
+      "database",
+      "linguistics"
+    ]
+  },
+  "de": {
+    "title": "TERMDAT 3.0 Öffentlicher Datenkatalog API",
+    "description": "Die API des öffentlichen Datenkatalogs TERMDAT 3.0 ermöglicht den Zugriff auf eine umfassende Datenbank mit rund 400'000 mehrsprachigen Fachbegriffen in den vier Amtssprachen der Schweiz - Deutsch, Französisch, Italienisch, Rätoromanisch - und Englisch. Diese API erlaubt es, Informationen über Klassifikationen, Sammlungen und spezifische Einträge abzurufen, nach verschiedenen Parametern zu suchen und den Systemstatus zu überprüfen. Sie unterstützt GET-Methoden zum Abrufen von Daten zu Klassifikationen, Sammlungen, Einträgen und Suchergebnissen. Diese API ist nützlich für Forscher, Linguisten, Übersetzer, Behörden und alle, die Fachterminologie in mehreren Sprachen benötigen. Die API wurde entwickelt, um einen einfachen Zugang zu verschiedenen Terminologien für verschiedene Bereiche zu ermöglichen, einschließlich mehrsprachiger Kommunikation, Übersetzung, Terminologiestandardisierung und interkulturellem Verständnis.",
+    "keywords": [
+      "mehrsprachig",
+      "Terminologie",
+      "Fachbegriffe",
+      "Datenbank",
+      "Linguistik"
+    ]
+  },
+  "fr": {
+    "title": "TERMDAT 3.0 Catalogue de données publiques API",
+    "description": "L'API du catalogue de données publiques TERMDAT 3.0 donne accès à une base de données complète d'environ 400 000 termes spécialisés multilingues dans les quatre langues officielles de la Suisse - allemand, français, italien, romanche - et en anglais. Cette API permet aux utilisateurs de récupérer des informations sur les classifications, les collections, les entrées spécifiques, d'effectuer des recherches basées sur divers paramètres et de vérifier l'état du système. Il prend en charge les méthodes GET pour récupérer les données relatives aux classifications, aux collections, aux entrées et aux résultats de la recherche. Cette API est utile aux chercheurs, linguistes, traducteurs, agences gouvernementales et à toute personne ayant besoin d'une terminologie spécialisée dans plusieurs langues. L'API est conçue pour faciliter l'accès à diverses terminologies dans différents domaines, notamment la communication multilingue, la traduction, la normalisation terminologique et la compréhension interculturelle.",
+    "keywords": [
+      "multilingue",
+      "terminologie",
+      "termes spécialisés",
+      "base de données",
+      "linguistique"
+    ]
+  },
+  "it": {
+    "title": "TERMDAT 3.0 Catalogo pubblico dei dati API",
+    "description": "L'API del catalogo pubblico dei dati TERMDAT 3.0 consente di accedere a un database completo di circa 400.000 termini specialistici multilingue nelle quattro lingue ufficiali della Svizzera - tedesco, francese, italiano e romancio - e in inglese. Questa API consente agli utenti di recuperare informazioni su classificazioni, collezioni, voci specifiche, effettuare ricerche basate su vari parametri e controllare lo stato del sistema. Supporta i metodi GET per recuperare i dati relativi a classificazioni, collezioni, voci e risultati delle ricerche. Questa API è utile a ricercatori, linguisti, traduttori, agenzie governative e a chiunque abbia bisogno di una terminologia specializzata in più lingue. L'API è stata progettata per facilitare l'accesso a diverse terminologie per vari ambiti, tra cui la comunicazione multilingue, la traduzione, la standardizzazione terminologica e la comprensione interculturale.",
+    "keywords": [
+      "multilingue",
+      "terminologia",
+      "termini specialistici",
+      "database",
+      "linguistica"
+    ]
+  },
+  "rm": {
+    "title": "",
+    "description": "",
+    "keywords": []
+  }
+}
