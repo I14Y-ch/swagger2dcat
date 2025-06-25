@@ -7,3 +7,4 @@ deepl==1.12.0
 httpx==0.24.1
 beautifulsoup4==4.12.2
 gunicorn==21.2.0
+redis==5.0.1  # Optional: for production-like session handling

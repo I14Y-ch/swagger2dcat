@@ -668,7 +668,7 @@ def upload():
             'en': {
                 'title': title,
                 'description': description,
-                'keywords': keywords if isinstance(keywords, list) : []
+                'keywords': keywords if isinstance(keywords, list) else []
             },
             'de': {'title': '', 'description': '', 'keywords': []},
             'fr': {'title': '', 'description': '', 'keywords': []},
