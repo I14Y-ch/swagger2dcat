@@ -40,7 +40,11 @@ app = Flask(__name__,
 app.config['APPLICATION_ROOT'] = '/swagger2dcat'
 
 # Initialize Flask app
-app.secret_key = os.environ.get('SECRET_KEY', 'swagger2dcat-secret-key')
+secret_key = os.environ.get('SECRET_KEY')
+if not secret_key:
+    logger.warning("SECRET_KEY not set in environment! Using default (insecure) key.")
+    secret_key = 'swagger2dcat-secret-key'
+app.secret_key = secret_key
 
 # Create session directory
 os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_storage'), exist_ok=True)
@@ -267,6 +271,8 @@ def loading():
 
 @app.route('/check_processing_status')
 def check_processing_status():
+    # Debug: log session contents
+    logger.info(f"Session contents at /check_processing_status: {dict(session)}")
     processing_id = session.get('processing_id')
     
     if not processing_id:
