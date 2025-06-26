@@ -157,3 +157,63 @@ def translate_content(title_de, description_de, keywords_de, title_en=None, desc
         pass  # Silent error handling
     
     return translations
+
+def translate_to_language(title_en, description_en, keywords_en, target_lang):
+    """
+    Translate content from English to a specific target language
+    Args:
+        title_en: English title
+        description_en: English description  
+        keywords_en: List of English keywords
+        target_lang: Target language code ('de', 'fr', 'it')
+    Returns:
+        dict: Translated content with title, description, keywords
+    """
+    if not DEEPL_API_KEY:
+        return {'error': 'DeepL API key not available'}
+    
+    try:
+        translator = deepl.Translator(DEEPL_API_KEY)
+    except Exception as e:
+        return {'error': f'Failed to initialize DeepL translator: {str(e)}'}
+    
+    # Map target language to DeepL language codes
+    lang_map = {
+        'de': 'DE',
+        'fr': 'FR', 
+        'it': 'IT'
+    }
+    
+    if target_lang not in lang_map:
+        return {'error': f'Unsupported target language: {target_lang}'}
+    
+    deepl_lang = lang_map[target_lang]
+    
+    try:
+        result = {
+            'title': '',
+            'description': '',
+            'keywords': []
+        }
+        
+        # Translate title
+        if title_en:
+            result['title'] = translator.translate_text(
+                title_en, source_lang="EN", target_lang=deepl_lang).text
+        
+        # Translate description  
+        if description_en:
+            result['description'] = translator.translate_text(
+                description_en, source_lang="EN", target_lang=deepl_lang).text
+        
+        # Translate keywords
+        if keywords_en:
+            result['keywords'] = [
+                translator.translate_text(kw, source_lang="EN", target_lang=deepl_lang).text
+                for kw in keywords_en
+            ]
+        
+        return result
+        
+    except Exception as e:
+        return {'error': f'Translation failed: {str(e)}'}

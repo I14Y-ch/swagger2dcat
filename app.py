@@ -634,17 +634,47 @@ def upload():
     landing_page_url = session.get('landing_page_url', '')
     document_links = session.get('document_links', [])
 
-    # Always try to load translations from file first
+    # Always try to load translations from file first with enhanced logging
+    logger.info(f"[/upload] Session ID: {session.get('_id', 'NO_ID')}")
+    logger.info("[/upload] Attempting to load translations from file...")
     translations = load_from_session_file('translations', {})
-    # If not in file, check session (backwards compatibility)
-    if not translations:
-        translations = session.get('translations', {})
+    logger.info(f"[/upload] File load result: {bool(translations)} ({len(translations) if translations else 0} languages)")
+    
+    # Log what we found in the file
+    if translations:
+        for lang, content in translations.items():
+            title = content.get('title', '') if isinstance(content, dict) else ''
+            logger.info(f"[/upload] File {lang}: title='{title[:30]}...' ({len(title)} chars)")
+    
+    # If file didn't have good data, check session
+    if not translations or not any(
+        isinstance(lang_data, dict) and (lang_data.get('title') or lang_data.get('description'))
+        for lang_data in translations.values()
+    ):
+        logger.info("[/upload] File load failed or empty, checking session...")
+        session_translations = session.get('translations', {})
+        logger.info(f"[/upload] Session load result: {bool(session_translations)} ({len(session_translations) if session_translations else 0} languages)")
+        
+        # Use session data if it's better than file data
+        if session_translations and any(
+            isinstance(lang_data, dict) and (lang_data.get('title') or lang_data.get('description'))
+            for lang_data in session_translations.values()
+        ):
+            translations = session_translations
+            logger.info("[/upload] Using session translations (better than file)")
+    
     # If still not found, fallback to API details or generated content
-    if not translations:
+    if not translations or not any(
+        isinstance(lang_data, dict) and (lang_data.get('title') or lang_data.get('description'))
+        for lang_data in translations.values()
+    ):
+        logger.info("[/upload] No good translations found, attempting to create from API details...")
         # Try to get from API details or generated content
         title = session.get('title') or session.get('generated_title', '') or api_details.get('title', '')
         description = session.get('description') or session.get('generated_description', '') or api_details.get('description', '')
         keywords = session.get('keywords') or session.get('generated_keywords', []) or api_details.get('keywords', [])
+        
+        logger.info(f"[/upload] Fallback data: title='{title[:50] if title else 'NONE'}...', desc_len={len(description) if description else 0}")
         
         if title or description:
             translations = {
@@ -659,11 +689,22 @@ def upload():
             }
             save_to_session_file('translations', translations)
             session['translations_available'] = True
-            session['translations'] = translations  # <-- ensure session is updated
-        session['translations'] = translations  # <-- ensure session is updated
-    elif not translations:
-        flash("Please complete the API details step first.", "warning")
-        return redirect(url_for('ai'))
+            logger.info("Created fallback translations structure")
+        else:
+            logger.error("[/upload] No translation data available anywhere!")
+            flash("Please complete the API details step first.", "warning")
+            return redirect(url_for('ai'))
+    
+    # Ensure session is always updated with the current translations
+    session['translations'] = translations
+    session['translations_available'] = True
+    
+    logger.info(f"[/upload] Loaded translations with keys: {list(translations.keys()) if translations else 'None'}")
+    if translations:
+        logger.info(f"[/upload] EN title: '{translations.get('en', {}).get('title', 'MISSING')[:50]}...'")
+        logger.info(f"[/upload] DE title: '{translations.get('de', {}).get('title', 'MISSING')[:50]}...'")
+        logger.info(f"[/upload] FR title: '{translations.get('fr', {}).get('title', 'MISSING')[:50]}...'")
+        logger.info(f"[/upload] IT title: '{translations.get('it', {}).get('title', 'MISSING')[:50]}...'")
     
     # Initialize default contact point structure if missing
     default_contact_point = {
@@ -1321,12 +1362,12 @@ def save_api_details():
         
         # Auto-translate if DeepL is available
         try:
-            from utils.deepl_utils import translate_content
+            from utils.deepl_utils import translate_to_language
             
             # Try to translate to German, French, and Italian
             for target_lang in ['de', 'fr', 'it']:
                 try:
-                    translated = translate_content(title, description, keywords, target_lang)
+                    translated = translate_to_language(title, description, keywords, target_lang)
                     if translated and not translated.get('error'):
                         translations[target_lang] = {
                             'title': translated.get('title', ''),
@@ -1348,7 +1389,20 @@ def save_api_details():
         save_to_session_file('translations', translations)
         session['translations_available'] = True
         
+        # Debug logging for translations
         logger.info("Auto-generated translations and proceeding to review")
+        logger.info(f"Translations structure created with {len(translations)} languages")
+        logger.info(f"Session ID: {session.get('_id', 'NO_ID')}")
+        for lang, content in translations.items():
+            logger.info(f"  {lang}: title='{content.get('title', '')[:50]}...', desc_len={len(content.get('description', ''))}, keywords_count={len(content.get('keywords', []))}")
+        
+        # Verify file save worked
+        saved_translations = load_from_session_file('translations', {})
+        if saved_translations:
+            logger.info("Verified: translations successfully saved to file")
+            logger.info(f"Loaded back: {len(saved_translations)} languages")
+        else:
+            logger.error("ERROR: translations NOT saved to file!")
         
         # Redirect directly to upload/review step
         return redirect(url_for('upload'))

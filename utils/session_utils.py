@@ -97,11 +97,21 @@ def restore_all_data_from_files():
                         session[sub_key] = value
                         restored_keys.append(f"{key}.{sub_key}")
             elif key == 'translations':
-                # Restore translations directly
-                if 'translations' not in session or not session.get('translations'):
-                    session['translations'] = data
-                    session['translations_available'] = True
-                    restored_keys.append(key)
+                # Restore translations - be more aggressive about this
+                existing_translations = session.get('translations', {})
+                # Only restore if we don't have translations or if the file has more complete data
+                if not existing_translations or len(data) > len(existing_translations):
+                    # Check if file data is more complete (has actual content)
+                    file_has_content = any(
+                        lang_data.get('title') or lang_data.get('description') 
+                        for lang_data in data.values() 
+                        if isinstance(lang_data, dict)
+                    )
+                    if file_has_content or not existing_translations:
+                        session['translations'] = data
+                        session['translations_available'] = True
+                        restored_keys.append(key)
+                        logger.info(f"Restored translations from file with {len(data)} languages")
     
     if restored_keys:
         logger.info(f"Docker reliability: Restored data keys: {restored_keys}")
