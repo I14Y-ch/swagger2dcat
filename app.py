@@ -35,11 +35,11 @@ logger.info(f"DEEPL_API_KEY available: {bool(DEEPL_API_KEY)}")
 
 # Create Flask app 
 app = Flask(__name__, 
-            static_url_path='/static',  # <-- Fixed: static files at /static
+            static_url_path='/static',
             template_folder='templates'
            )
 
-# --- Session cleanup utility ---
+# Session cleanup utility
 def cleanup_old_sessions(session_dir, max_age_seconds=7200):
     """
     Delete session files older than max_age_seconds from the session directory.
@@ -63,7 +63,7 @@ def cleanup_old_sessions(session_dir, max_age_seconds=7200):
 session_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_storage')
 os.makedirs(session_dir, exist_ok=True)
 
-# --- Clean up old sessions before initializing session interface ---
+# Clean up old sessions before initializing session interface
 cleanup_old_sessions(session_dir, max_age_seconds=7200)
 
 # Ensure permissions are set correctly for Docker environment
@@ -1364,17 +1364,22 @@ def save_api_details():
         try:
             from utils.deepl_utils import translate_to_language
             
+            logger.info(f"Starting auto-translation for title='{title[:50]}...', desc_len={len(description)}, keywords={keywords}")
+            
             # Try to translate to German, French, and Italian
             for target_lang in ['de', 'fr', 'it']:
                 try:
+                    logger.info(f"Attempting translation to {target_lang}")
                     translated = translate_to_language(title, description, keywords, target_lang)
+                    logger.info(f"Translation result for {target_lang}: {translated}")
+                    
                     if translated and not translated.get('error'):
                         translations[target_lang] = {
                             'title': translated.get('title', ''),
                             'description': translated.get('description', ''),
                             'keywords': translated.get('keywords', [])
                         }
-                        logger.info(f"Auto-translated content to {target_lang}")
+                        logger.info(f"Auto-translated content to {target_lang}: title='{translated.get('title', '')[:30]}...', desc_len={len(translated.get('description', ''))}")
                     else:
                         logger.warning(f"Translation to {target_lang} failed: {translated.get('error', 'Unknown error')}")
                 except Exception as e:

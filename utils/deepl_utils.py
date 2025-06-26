@@ -169,12 +169,22 @@ def translate_to_language(title_en, description_en, keywords_en, target_lang):
     Returns:
         dict: Translated content with title, description, keywords
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"[translate_to_language] Called with target_lang={target_lang}")
+    logger.info(f"[translate_to_language] Input - title: '{title_en[:50] if title_en else 'None'}...'")
+    logger.info(f"[translate_to_language] Input - desc_len: {len(description_en) if description_en else 0}")
+    logger.info(f"[translate_to_language] Input - keywords: {keywords_en}")
+    
     if not DEEPL_API_KEY:
+        logger.error("[translate_to_language] DeepL API key not available")
         return {'error': 'DeepL API key not available'}
     
     try:
         translator = deepl.Translator(DEEPL_API_KEY)
     except Exception as e:
+        logger.error(f"[translate_to_language] Failed to initialize translator: {str(e)}")
         return {'error': f'Failed to initialize DeepL translator: {str(e)}'}
     
     # Map target language to DeepL language codes
@@ -185,6 +195,7 @@ def translate_to_language(title_en, description_en, keywords_en, target_lang):
     }
     
     if target_lang not in lang_map:
+        logger.error(f"[translate_to_language] Unsupported target language: {target_lang}")
         return {'error': f'Unsupported target language: {target_lang}'}
     
     deepl_lang = lang_map[target_lang]
@@ -198,22 +209,30 @@ def translate_to_language(title_en, description_en, keywords_en, target_lang):
         
         # Translate title
         if title_en:
-            result['title'] = translator.translate_text(
+            translated_title = translator.translate_text(
                 title_en, source_lang="EN", target_lang=deepl_lang).text
+            result['title'] = translated_title
+            logger.info(f"[translate_to_language] Translated title to {target_lang}: '{translated_title[:50]}...'")
         
         # Translate description  
         if description_en:
-            result['description'] = translator.translate_text(
+            translated_desc = translator.translate_text(
                 description_en, source_lang="EN", target_lang=deepl_lang).text
+            result['description'] = translated_desc
+            logger.info(f"[translate_to_language] Translated description to {target_lang}: {len(translated_desc)} chars")
         
         # Translate keywords
         if keywords_en:
-            result['keywords'] = [
+            translated_keywords = [
                 translator.translate_text(kw, source_lang="EN", target_lang=deepl_lang).text
                 for kw in keywords_en
             ]
+            result['keywords'] = translated_keywords
+            logger.info(f"[translate_to_language] Translated keywords to {target_lang}: {translated_keywords}")
         
+        logger.info(f"[translate_to_language] Returning result for {target_lang}: title='{result['title'][:30]}...', desc_len={len(result['description'])}, keywords_count={len(result['keywords'])}")
         return result
         
     except Exception as e:
+        logger.error(f"[translate_to_language] Translation failed: {str(e)}")
         return {'error': f'Translation failed: {str(e)}'}
