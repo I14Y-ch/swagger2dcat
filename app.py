@@ -720,20 +720,17 @@ def upload():
     
     # Import our session utilities
     from utils.session_utils import save_to_session_file, load_from_session_file
-    
-    # Get translations - first try to load from file
+
+    # Always try to load translations from file first
     translations = load_from_session_file('translations', {})
-    
     # If not in file, check session (backwards compatibility)
     if not translations:
         translations = session.get('translations', {})
-        
+    # If still not found, fallback to generated content
     if not translations and session.get('generated_title'):
-        # Create from generated content if available
         title = session.get('generated_title', '')
         description = session.get('generated_description', '')
         keywords = session.get('generated_keywords', [])
-        
         translations = {
             'en': {
                 'title': title,
@@ -744,9 +741,9 @@ def upload():
             'fr': {'title': '', 'description': '', 'keywords': []},
             'it': {'title': '', 'description': '', 'keywords': []}
         }
-        # Save to file instead of session
         save_to_session_file('translations', translations)
         session['translations_available'] = True
+        session['translations'] = translations  # <-- ensure session is updated
     elif not translations:
         flash("Please complete the translation step first.", "warning")
         return redirect(url_for('translation'))
