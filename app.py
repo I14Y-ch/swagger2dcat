@@ -1352,7 +1352,8 @@ def save_api_details():
     save_to_session_file('translations', translations)
     session['translations_available'] = True
 
-    return jsonify({"success": True})
+    # Redirect to the next step (upload page)
+    return redirect(url_for('upload'))
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
