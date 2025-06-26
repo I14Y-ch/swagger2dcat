@@ -1315,6 +1315,45 @@ def autosave_review():
 
     return jsonify({"success": True})
 
+@app.route('/save_api_details', methods=['POST'])
+def save_api_details():
+    """
+    Save reviewed API details from the translation step.
+    """
+    from utils.session_utils import save_to_session_file, load_from_session_file
+
+    # Get translations from file or session
+    translations = load_from_session_file('translations', {}) or session.get('translations', {})
+    if not translations:
+        # Initialize if missing
+        translations = {
+            'en': {'title': '', 'description': '', 'keywords': []},
+            'de': {'title': '', 'description': '', 'keywords': []},
+            'fr': {'title': '', 'description': '', 'keywords': []},
+            'it': {'title': '', 'description': '', 'keywords': []}
+        }
+
+    # Update translations from form data
+    translations['en']['title'] = request.form.get('title_en', '')
+    translations['en']['description'] = request.form.get('description_en', '')
+    translations['en']['keywords'] = [kw.strip() for kw in request.form.get('keywords_en', '').split(',') if kw.strip()]
+    translations['de']['title'] = request.form.get('title_de', '')
+    translations['de']['description'] = request.form.get('description_de', '')
+    translations['de']['keywords'] = [kw.strip() for kw in request.form.get('keywords_de', '').split(',') if kw.strip()]
+    translations['fr']['title'] = request.form.get('title_fr', '')
+    translations['fr']['description'] = request.form.get('description_fr', '')
+    translations['fr']['keywords'] = [kw.strip() for kw in request.form.get('keywords_fr', '').split(',') if kw.strip()]
+    translations['it']['title'] = request.form.get('title_it', '')
+    translations['it']['description'] = request.form.get('description_it', '')
+    translations['it']['keywords'] = [kw.strip() for kw in request.form.get('keywords_it', '').split(',') if kw.strip()]
+
+    # Save to session and file
+    session['translations'] = translations
+    save_to_session_file('translations', translations)
+    session['translations_available'] = True
+
+    return jsonify({"success": True})
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     logger.info(f"Starting Flask app on port {port}")
