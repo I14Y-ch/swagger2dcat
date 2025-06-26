@@ -71,3 +71,39 @@ def delete_session_file(key=None):
             main_file = os.path.join(SESSION_STORAGE_DIR, f"{session_id}.json")
             if os.path.exists(main_file):
                 os.remove(main_file)
+
+def restore_all_data_from_files():
+    """Restore all persistent data from files to session (Docker reliability)"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # List of all data keys that should be restored
+    data_keys = ['api_details', 'generated_content', 'translations']
+    
+    restored_keys = []
+    for key in data_keys:
+        data = load_from_session_file(key, {})
+        if data:
+            if key == 'api_details':
+                # Restore API details
+                for sub_key, value in data.items():
+                    if sub_key not in session or not session.get(sub_key):
+                        session[sub_key] = value
+                        restored_keys.append(f"{key}.{sub_key}")
+            elif key == 'generated_content':
+                # Restore generated content
+                for sub_key, value in data.items():
+                    if sub_key not in session or not session.get(sub_key):
+                        session[sub_key] = value
+                        restored_keys.append(f"{key}.{sub_key}")
+            elif key == 'translations':
+                # Restore translations directly
+                if 'translations' not in session or not session.get('translations'):
+                    session['translations'] = data
+                    session['translations_available'] = True
+                    restored_keys.append(key)
+    
+    if restored_keys:
+        logger.info(f"Docker reliability: Restored data keys: {restored_keys}")
+    
+    return restored_keys

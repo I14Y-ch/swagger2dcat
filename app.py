@@ -398,6 +398,12 @@ def ai():
         logger.warning(f"[/ai] processing_status is '{session.get('processing_status')}', redirecting to /loading")
         return redirect(url_for('loading'))
     
+    # Import session utilities for file-based storage
+    from utils.session_utils import save_to_session_file, load_from_session_file, restore_all_data_from_files
+    
+    # Restore all data from persistent storage for Docker reliability
+    restore_all_data_from_files()
+    
     # Get data from session
     swagger_url = session.get('swagger_url', '')
     landing_page_url = session.get('landing_page_url', '')
@@ -462,12 +468,12 @@ def ai():
         if len(endpoint_short_descriptions) > 30:
             full_description += f"... and {len(endpoint_short_descriptions) - 30} more endpoints\n"
 
-    # Get any previously entered or generated content (prioritize existing content)
-    title = session.get('generated_title', '') or swagger_info.get('title', '')
-    description = session.get('generated_description', '') or full_description
+    # Get any previously entered or generated content (prioritize API details, then generated, then swagger)
+    title = session.get('title') or session.get('generated_title', '') or swagger_info.get('title', '')
+    description = session.get('description') or session.get('generated_description', '') or full_description
     
-    # Get keywords from Swagger or session
-    keywords = session.get('generated_keywords', []) or swagger_info.get('keywords', [])
+    # Get keywords from session, generated, or Swagger
+    keywords = session.get('keywords') or session.get('generated_keywords', []) or swagger_info.get('keywords', [])
     if isinstance(keywords, list):
         keywords_display = ', '.join(keywords)
     else:
@@ -552,6 +558,8 @@ def ai():
 
 @app.route('/generate', methods=['POST'])
 def generate():
+    from utils.session_utils import save_to_session_file
+    
     swagger_url = session.get('swagger_url')
     landing_page_url = session.get('landing_page_url')
     landing_page_content = session.get('landing_page_content', '')
@@ -588,6 +596,16 @@ def generate():
     
     session['theme_codes'] = theme_codes
 
+    # IMPORTANT: Save generated content to persistent storage for Docker reliability
+    generated_data = {
+        'generated_title': session['generated_title'],
+        'generated_description': session['generated_description'],
+        'generated_keywords': session['generated_keywords'],
+        'theme_codes': session['theme_codes']
+    }
+    save_to_session_file('generated_content', generated_data)
+    logger.info("Saved generated content to persistent storage")
+
     return jsonify(generated_content)
 
 @app.route('/translation')
@@ -597,24 +615,29 @@ def translation():
         flash("Please start from step 1.", "warning")
         return redirect(url_for('url'))
     
-    # Check if we have metadata (either generated or manually entered)
-    if not session.get('generated_title') and not session.get('selected_agency'):
-        flash("Please complete step 2 first.", "warning")
-        return redirect(url_for('ai'))
+    # Import session utilities
+    from utils.session_utils import save_to_session_file, load_from_session_file, restore_all_data_from_files
     
-    # Get content from session (from step 2)
-    title = session.get('generated_title', '')
-    description = session.get('generated_description', '')
-    keywords = session.get('generated_keywords', [])
+    # Restore all data from persistent storage for Docker reliability
+    restore_all_data_from_files()
+    
+    # Get restored API details for fallback values
+    api_details = load_from_session_file('api_details', {})
+    
+    # Check if we have metadata (prioritize session over generated, then api_details)
+    title = session.get('title') or session.get('generated_title', '') or api_details.get('title', '')
+    description = session.get('description') or session.get('generated_description', '') or api_details.get('description', '')
+    keywords = session.get('keywords') or session.get('generated_keywords', []) or api_details.get('keywords', [])
+    
+    if not title and not description:
+        flash("Please complete the API details step first.", "warning")
+        return redirect(url_for('ai'))
     
     # Format keywords as a string for display
     if isinstance(keywords, list):
         keywords_display = ', '.join(keywords)
     else:
         keywords_display = keywords
-    
-    # Import our session utilities
-    from utils.session_utils import save_to_session_file, load_from_session_file
     
     # Get any existing translations
     translations = load_from_session_file('translations', {})
@@ -635,8 +658,6 @@ def translation():
             'fr': {'title': '', 'description': '', 'keywords': []},
             'it': {'title': '', 'description': '', 'keywords': []}
         }
-        # Import our session utilities
-        from utils.session_utils import save_to_session_file
         # Store in file instead of session to avoid size limits
         save_to_session_file('translations', translations)
         session['translations_available'] = True
@@ -708,6 +729,15 @@ def upload():
         flash("Please start from step 1.", "warning")
         return redirect(url_for('url'))
     
+    # Import our session utilities
+    from utils.session_utils import save_to_session_file, load_from_session_file, restore_all_data_from_files
+
+    # Restore all data from persistent storage for Docker reliability
+    restore_all_data_from_files()
+    
+    # Get restored API details for fallback values
+    api_details = load_from_session_file('api_details', {})
+    
     # Get agents for publisher name resolution
     agents = get_cached_agents()
     theme_codes = session.get('theme_codes', [])
@@ -717,32 +747,33 @@ def upload():
     swagger_url = session.get('swagger_url', '')
     landing_page_url = session.get('landing_page_url', '')
     document_links = session.get('document_links', [])
-    
-    # Import our session utilities
-    from utils.session_utils import save_to_session_file, load_from_session_file
 
     # Always try to load translations from file first
     translations = load_from_session_file('translations', {})
     # If not in file, check session (backwards compatibility)
     if not translations:
         translations = session.get('translations', {})
-    # If still not found, fallback to generated content
-    if not translations and session.get('generated_title'):
-        title = session.get('generated_title', '')
-        description = session.get('generated_description', '')
-        keywords = session.get('generated_keywords', [])
-        translations = {
-            'en': {
-                'title': title,
-                'description': description,
-                'keywords': keywords if isinstance(keywords, list) else []
-            },
-            'de': {'title': '', 'description': '', 'keywords': []},
-            'fr': {'title': '', 'description': '', 'keywords': []},
-            'it': {'title': '', 'description': '', 'keywords': []}
-        }
-        save_to_session_file('translations', translations)
-        session['translations_available'] = True
+    # If still not found, fallback to API details or generated content
+    if not translations:
+        # Try to get from API details or generated content
+        title = session.get('title') or session.get('generated_title', '') or api_details.get('title', '')
+        description = session.get('description') or session.get('generated_description', '') or api_details.get('description', '')
+        keywords = session.get('keywords') or session.get('generated_keywords', []) or api_details.get('keywords', [])
+        
+        if title or description:
+            translations = {
+                'en': {
+                    'title': title,
+                    'description': description,
+                    'keywords': keywords if isinstance(keywords, list) else []
+                },
+                'de': {'title': '', 'description': '', 'keywords': []},
+                'fr': {'title': '', 'description': '', 'keywords': []},
+                'it': {'title': '', 'description': '', 'keywords': []}
+            }
+            save_to_session_file('translations', translations)
+            session['translations_available'] = True
+            session['translations'] = translations  # <-- ensure session is updated
         session['translations'] = translations  # <-- ensure session is updated
     elif not translations:
         flash("Please complete the translation step first.", "warning")
@@ -893,6 +924,10 @@ def upload():
     session['latest_json_data'] = json_data
 
     # Render the template with editable fields
+    logger.info(f"[/upload] Rendering template with translations keys: {list(translations.keys()) if translations else 'None'}")
+    logger.info(f"[/upload] English title: '{translations.get('en', {}).get('title', 'MISSING')[:50]}...' if translations else 'No translations'")
+    logger.info(f"[/upload] Contact point org en: '{contact_point.get('org', {}).get('en', 'MISSING')}'")
+    
     return render_template('upload.html',
         translations=translations,
         contact_point=contact_point,
@@ -978,11 +1013,20 @@ def submit_to_i14y():
     Submit the generated JSON data directly to the I14Y API
     """
     try:
+        # Import session utilities for data restoration
+        from utils.session_utils import restore_all_data_from_files
+        
+        # Ensure all data is restored from persistent storage (Docker reliability)
+        restore_all_data_from_files()
+        
         # Use the latest generated JSON from session if available
         json_data = session.get('latest_json_data')
         if not json_data:
             # Fallback: regenerate if not present
-            translations = session.get('translations', {})
+            from utils.session_utils import load_from_session_file
+            
+            # Load data from both session and files (prefer session, fallback to files)
+            translations = session.get('translations', {}) or load_from_session_file('translations', {})
             theme_codes = session.get('theme_codes', [])
             selected_agency = session.get('selected_agency', '')
             swagger_url = session.get('swagger_url', '')
@@ -1315,42 +1359,123 @@ def autosave_review():
 @app.route('/save_api_details', methods=['POST'])
 def save_api_details():
     """
-    Save reviewed API details from the translation step.
+    Save API details from either the AI form or the translation step.
+    Detects which form was submitted based on the presence of specific fields.
     """
     from utils.session_utils import save_to_session_file, load_from_session_file
 
-    # Get translations from file or session
-    translations = load_from_session_file('translations', {}) or session.get('translations', {})
-    if not translations:
-        # Initialize if missing
-        translations = {
-            'en': {'title': '', 'description': '', 'keywords': []},
-            'de': {'title': '', 'description': '', 'keywords': []},
-            'fr': {'title': '', 'description': '', 'keywords': []},
-            'it': {'title': '', 'description': '', 'keywords': []}
+    # Check if this is from the AI form (has 'title' field) or translation form (has 'title_en' field)
+    is_ai_form = 'title' in request.form and 'title_en' not in request.form
+    is_translation_form = 'title_en' in request.form
+
+    if is_ai_form:
+        # Handle AI form submission - save API details to session and files
+        logger.info("Saving API details from AI form")
+        
+        # Save basic API details to session
+        session['title'] = request.form.get('title', '').strip()
+        session['description'] = request.form.get('description', '').strip()
+        
+        # Handle keywords
+        keywords_str = request.form.get('keywords', '')
+        keywords = [kw.strip() for kw in keywords_str.split(',') if kw.strip()]
+        session['keywords'] = keywords
+        
+        # Handle theme codes (multi-select)
+        theme_codes = request.form.getlist('theme_codes')
+        session['theme_codes'] = theme_codes
+        
+        # Save access rights and license
+        session['access_rights_code'] = request.form.get('access_rights_code', 'PUBLIC')
+        session['license_code'] = request.form.get('license_code', '')
+        
+        # Save selected agency
+        session['selected_agency'] = request.form.get('agency', '')
+        
+        # Save API details to persistent file storage for Docker reliability
+        api_details = {
+            'title': session['title'],
+            'description': session['description'],
+            'keywords': session['keywords'],
+            'theme_codes': session['theme_codes'],
+            'access_rights_code': session['access_rights_code'],
+            'license_code': session['license_code'],
+            'selected_agency': session['selected_agency']
         }
+        save_to_session_file('api_details', api_details)
+        
+        # Also save the current state with generated content for extra safety
+        if session.get('generated_title') or session.get('generated_description'):
+            generated_data = {
+                'generated_title': session.get('generated_title', ''),
+                'generated_description': session.get('generated_description', ''),
+                'generated_keywords': session.get('generated_keywords', []),
+                'theme_codes': session.get('theme_codes', [])
+            }
+            save_to_session_file('generated_content', generated_data)
+            logger.info("Also saved generated content as backup during API details save")
+        
+        logger.info(f"Saved API details: title='{session['title'][:50]}...', keywords={len(keywords)}, themes={len(theme_codes)}, agency='{session['selected_agency']}'")
+        
+        # Redirect to translation step
+        return redirect(url_for('translation'))
+        
+    elif is_translation_form:
+        # Handle translation form submission
+        logger.info("Saving translations from translation form")
+        
+        # Load existing API details from file (for Docker reliability)
+        api_details = load_from_session_file('api_details', {})
+        if api_details:
+            # Restore API details to session if they were lost
+            restored_keys = []
+            for key, value in api_details.items():
+                if key not in session or not session.get(key):
+                    session[key] = value
+                    restored_keys.append(key)
+            if restored_keys:
+                logger.info(f"Restored API details from file: {restored_keys}")
+        else:
+            logger.warning("No API details found in file storage - translations form may be missing data")
+        translations = load_from_session_file('translations', {}) or session.get('translations', {})
+        if not translations:
+            # Initialize if missing
+            translations = {
+                'en': {'title': '', 'description': '', 'keywords': []},
+                'de': {'title': '', 'description': '', 'keywords': []},
+                'fr': {'title': '', 'description': '', 'keywords': []},
+                'it': {'title': '', 'description': '', 'keywords': []}
+            }
 
-    # Update translations from form data
-    translations['en']['title'] = request.form.get('title_en', '')
-    translations['en']['description'] = request.form.get('description_en', '')
-    translations['en']['keywords'] = [kw.strip() for kw in request.form.get('keywords_en', '').split(',') if kw.strip()]
-    translations['de']['title'] = request.form.get('title_de', '')
-    translations['de']['description'] = request.form.get('description_de', '')
-    translations['de']['keywords'] = [kw.strip() for kw in request.form.get('keywords_de', '').split(',') if kw.strip()]
-    translations['fr']['title'] = request.form.get('title_fr', '')
-    translations['fr']['description'] = request.form.get('description_fr', '')
-    translations['fr']['keywords'] = [kw.strip() for kw in request.form.get('keywords_fr', '').split(',') if kw.strip()]
-    translations['it']['title'] = request.form.get('title_it', '')
-    translations['it']['description'] = request.form.get('description_it', '')
-    translations['it']['keywords'] = [kw.strip() for kw in request.form.get('keywords_it', '').split(',') if kw.strip()]
+        # Update translations from form data
+        translations['en']['title'] = request.form.get('title_en', '')
+        translations['en']['description'] = request.form.get('description_en', '')
+        translations['en']['keywords'] = [kw.strip() for kw in request.form.get('keywords_en', '').split(',') if kw.strip()]
+        translations['de']['title'] = request.form.get('title_de', '')
+        translations['de']['description'] = request.form.get('description_de', '')
+        translations['de']['keywords'] = [kw.strip() for kw in request.form.get('keywords_de', '').split(',') if kw.strip()]
+        translations['fr']['title'] = request.form.get('title_fr', '')
+        translations['fr']['description'] = request.form.get('description_fr', '')
+        translations['fr']['keywords'] = [kw.strip() for kw in request.form.get('keywords_fr', '').split(',') if kw.strip()]
+        translations['it']['title'] = request.form.get('title_it', '')
+        translations['it']['description'] = request.form.get('description_it', '')
+        translations['it']['keywords'] = [kw.strip() for kw in request.form.get('keywords_it', '').split(',') if kw.strip()]
 
-    # Save to session and file
-    session['translations'] = translations
-    save_to_session_file('translations', translations)
-    session['translations_available'] = True
+        # Save to session and file
+        session['translations'] = translations
+        save_to_session_file('translations', translations)
+        session['translations_available'] = True
+        
+        logger.info("Saved translations to session and file")
 
-    # Redirect to the next step (upload page)
-    return redirect(url_for('upload'))
+        # Redirect to the next step (upload page)
+        return redirect(url_for('upload'))
+    
+    else:
+        # Unknown form type
+        logger.error("Unknown form submission to save_api_details")
+        flash("Invalid form submission.", "error")
+        return redirect(url_for('ai'))
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
