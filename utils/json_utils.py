@@ -153,6 +153,15 @@ def generate_dcat_json(
     # Get contact points from the selected agency or override
     contact_point = contact_point_override if contact_point_override else get_contact_points_from_agent(agency_id, agents_list)
 
+    # Helper for multilingual label
+    def multi_label(label_de, label_en, label_fr, label_it):
+        return {
+            "de": label_de,
+            "en": label_en,
+            "fr": label_fr,
+            "it": label_it
+        }
+
     # Build the JSON structure according to I14Y API requirements
     dcat_json = {
         "id": dataset_id,
@@ -170,13 +179,19 @@ def generate_dcat_json(
         },
         "keywords": [
             {
-                "de": kw,
+                "de": translations.get('de', {}).get('keywords', [])[i] if i < len(translations.get('de', {}).get('keywords', [])) else '',
                 "en": translations.get('en', {}).get('keywords', [])[i] if i < len(translations.get('en', {}).get('keywords', [])) else '',
                 "fr": translations.get('fr', {}).get('keywords', [])[i] if i < len(translations.get('fr', {}).get('keywords', [])) else '',
                 "it": translations.get('it', {}).get('keywords', [])[i] if i < len(translations.get('it', {}).get('keywords', [])) else ''
             }
-            for i, kw in enumerate(translations.get('de', {}).get('keywords', []))
-            if kw  # Only include non-empty keywords
+            for i in range(
+                max(
+                    len(translations.get('de', {}).get('keywords', [])),
+                    len(translations.get('en', {}).get('keywords', [])),
+                    len(translations.get('fr', {}).get('keywords', [])),
+                    len(translations.get('it', {}).get('keywords', []))
+                )
+            )
         ],
         "publisher": {
             "id": agency_id,
@@ -188,54 +203,45 @@ def generate_dcat_json(
         "endpointUrls": [
             {
                 "href": swagger_url,
-                "label": {
-                    "de": "API Endpunkt",
-                    "en": "API Endpoint",
-                    "fr": "Point de terminaison API",
-                    "it": "Endpoint API"
-                }
+                "label": multi_label(
+                    "API Endpunkt",
+                    "API Endpoint",
+                    "Point de terminaison API",
+                    "Endpoint API"
+                )
             }
         ],
         "endpointDescriptions": [
             {
                 "href": swagger_url,
-                "label": {
-                    "de": "API-Beschreibung (Swagger/OpenAPI)",
-                    "en": "API Description (Swagger/OpenAPI)",
-                    "fr": "Description de l'API (Swagger/OpenAPI)",
-                    "it": "Descrizione dell'API (Swagger/OpenAPI)"
-                }
+                "label": multi_label(
+                    "API-Beschreibung (Swagger/OpenAPI)",
+                    "API Description (Swagger/OpenAPI)",
+                    "Description de l'API (Swagger/OpenAPI)",
+                    "Descrizione dell'API (Swagger/OpenAPI)"
+                )
             }
         ],
         "documents": [
             {
                 "href": swagger_url,
                 "label": {
-                    "de": "API-Dokumentation (Swagger/OpenAPI)",
-                    "en": "API Documentation (Swagger/OpenAPI)",
-                    "fr": "Documentation de l'API (Swagger/OpenAPI)",
-                    "it": "Documentazione API (Swagger/OpenAPI)"
+                    "de": translations.get('de', {}).get('title', '') or "API-Dokumentation (Swagger/OpenAPI)",
+                    "en": translations.get('en', {}).get('title', '') or "API Documentation (Swagger/OpenAPI)",
+                    "fr": translations.get('fr', {}).get('title', '') or "Documentation de l'API (Swagger/OpenAPI)",
+                    "it": translations.get('it', {}).get('title', '') or "Documentazione API (Swagger/OpenAPI)"
                 }
             }
         ],
         "conformTos": [
             {
-                "href": "https://www.w3.org/TR/vocab-dcat-2/",
-                "label": {
-                    "de": "DCAT-AP Konformität",
-                    "en": "DCAT-AP Conformance",
-                    "fr": "Conformité DCAT-AP",
-                    "it": "Conformità DCAT-AP"
-                }
-            },
-            {
                 "href": "https://swagger.io/specification/",
-                "label": {
-                    "de": "Konform mit OpenAPI (Swagger) Spezifikation",
-                    "en": "Conforms to OpenAPI (Swagger) specification",
-                    "fr": "Conforme à la spécification OpenAPI (Swagger)",
-                    "it": "Conforme alle specifiche OpenAPI (Swagger)"
-                }
+                "label": multi_label(
+                    "Konform mit OpenAPI (Swagger) Spezifikation",
+                    "Conforms to OpenAPI (Swagger) specification",
+                    "Conforme à la spécification OpenAPI (Swagger)",
+                    "Conforme alle specifiche OpenAPI (Swagger)"
+                )
             }
         ],
         "version": datetime.now().strftime("%Y-%m-%d"),
@@ -309,40 +315,38 @@ def generate_dcat_json(
         dcat_json["landingPages"] = [
             {
                 "href": landing_page_url,
-                "label": {
-                    "de": "Weitere Informationen",
-                    "en": "More information",
-                    "fr": "Plus d'informations", 
-                    "it": "Maggiori informazioni"
-                }
+                "label": multi_label(
+                    "Weitere Informationen",
+                    "More information",
+                    "Plus d'informations", 
+                    "Maggiori informazioni"
+                )
             }
         ]
-        
-        # Also add landing page to documents
+        # Also add landing page to documents with all translations
         dcat_json["documents"].append({
             "href": landing_page_url,
-            "label": {
-                "de": "Weitere Informationen",
-                "en": "More information",
-                "fr": "Plus d'informations", 
-                "it": "Maggiori informazioni"
-            }
+            "label": multi_label(
+                "Weitere Informationen",
+                "More information",
+                "Plus d'informations", 
+                "Maggiori informazioni"
+            )
         })
 
-    # Add document links if provided
+    # Add document links if provided, with all translations for label
     if document_links:
         for doc in document_links:
             doc_type = doc['type'].upper() if doc['type'] else 'DOC'
             label_text = doc['label'] or f"Document ({doc_type})"
-            
             dcat_json["documents"].append({
                 "href": doc['href'],
-                "label": {
-                    "de": label_text,
-                    "en": label_text,
-                    "fr": label_text,
-                    "it": label_text
-                }
+                "label": multi_label(
+                    label_text,
+                    label_text,
+                    label_text,
+                    label_text
+                )
             })
 
     return dcat_json

@@ -1,10 +1,12 @@
 import os
 import json
 import requests
+import traceback
 from openai import OpenAI
 
 # Try to get API key from environment with proper fallbacks and helpful error messages
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')  # Default to GPT-4o-mini
 
 if not OPENAI_API_KEY:
     try:

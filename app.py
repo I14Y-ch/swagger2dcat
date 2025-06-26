@@ -9,6 +9,7 @@ import pickle
 import requests
 import re
 from werkzeug.middleware.proxy_fix import ProxyFix
+import glob
 
 # Setup environment first before any other imports
 from utils.env_setup import setup_environment
@@ -32,18 +33,46 @@ except ImportError:
 logger.info(f"OPENAI_API_KEY available: {bool(OPENAI_API_KEY)}")
 logger.info(f"DEEPL_API_KEY available: {bool(DEEPL_API_KEY)}")
 
-# Create Flask app with the correct URL prefix
+# Create Flask app 
 app = Flask(__name__, 
-            static_url_path='/swagger2dcat/static',
+            static_url_path='/static',  # <-- Fixed: static files at /static
             template_folder='templates'
            )
+
+# --- Session cleanup utility ---
+def cleanup_old_sessions(session_dir, max_age_seconds=7200):
+    """
+    Delete session files older than max_age_seconds from the session directory.
+    """
+    now = time.time()
+    session_files = glob.glob(os.path.join(session_dir, '*'))
+    deleted = 0
+    for f in session_files:
+        try:
+            if os.path.isfile(f):
+                mtime = os.path.getmtime(f)
+                if now - mtime > max_age_seconds:
+                    os.remove(f)
+                    deleted += 1
+        except Exception as e:
+            logger.warning(f"Could not delete session file {f}: {e}")
+    if deleted > 0:
+        logger.info(f"Deleted {deleted} expired session files from {session_dir}")
 
 # Configure server-side session storage
 session_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_storage')
 os.makedirs(session_dir, exist_ok=True)
+
+# --- Clean up old sessions before initializing session interface ---
+cleanup_old_sessions(session_dir, max_age_seconds=7200)
+
 # Ensure permissions are set correctly for Docker environment
 try:
-    os.chmod(session_dir, 0o777)  # Make writable by all users (needed for Docker)
+    os.chmod(session_dir, 0o777)  # Make writable by all users (needed for Docker; WARNING: 0o777 makes the directory world-writable. Only use this in isolated Docker containers, never on shared or production hosts, as it poses a security risk.)
+    if os.environ.get('DOCKERIZED', '').lower() == 'true':
+        os.chmod(session_dir, 0o777)  # Relaxed permissions for Docker
+    else:
+        os.chmod(session_dir, 0o770)  # Restrict to owner/group
 except Exception as e:
     logger.warning(f"Could not set permissions on session directory: {e}")
 
@@ -51,7 +80,7 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = session_dir
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
-app.config['SESSION_COOKIE_PATH'] = '/swagger2dcat'  # <-- Ensure cookie is valid for the app prefix
+app.config['SESSION_COOKIE_PATH'] = '/'  # <-- Fixed: cookie should work for root path
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 # Only use SECURE cookies if HTTPS is enabled
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('HTTPS_ENABLED', '').lower() == 'true'
@@ -60,8 +89,7 @@ Session(app)
 # Apply ProxyFix for correct proxy handling (important for Digital Ocean)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
-# Apply URL prefix to all routes
-app.config['APPLICATION_ROOT'] = '/swagger2dcat'
+# Note: APPLICATION_ROOT removed - app runs at root path
 
 # Initialize Flask app
 secret_key = os.environ.get('SECRET_KEY')
@@ -104,7 +132,7 @@ def get_cached_agents():
         
         return agents
     except Exception as e:
-        print(f"Error fetching agents: {str(e)}")
+        logger.error(f"Error fetching agents: {str(e)}")
         # Return cached data even if expired, or empty list
         return agents_cache['data'] if agents_cache['data'] is not None else []
 
@@ -118,7 +146,7 @@ def save_processing_data(processing_id, data):
             pickle.dump(data, f)
         return True
     except Exception as e:
-        print(f"Error saving processing data: {str(e)}")
+        logger.error(f"Error saving processing data: {str(e)}")
         return False
 
 def load_processing_data(processing_id):
@@ -134,25 +162,9 @@ def load_processing_data(processing_id):
             os.remove(temp_file)
             return data
     except Exception as e:
-        print(f"Error loading processing data: {str(e)}")
+        logger.error(f"Error loading processing data: {str(e)}")
     
     return None
-
-def cleanup_old_temp_files():
-    """Clean up old temporary files"""
-    import glob
-    
-    temp_dir = tempfile.gettempdir()
-    pattern = os.path.join(temp_dir, "swagger2dcat_*.pkl")
-    current_time = time.time()
-    
-    for file_path in glob.glob(pattern):
-        try:
-            # Remove files older than 1 hour
-            if os.path.getmtime(file_path) < current_time - 3600:
-                os.remove(file_path)
-        except Exception:
-            pass  # Ignore errors during cleanup
 
 # Global dictionary to store processing results (in production, you'd use Redis or similar)
 processing_results = {}
@@ -175,32 +187,6 @@ def detect_office_id_from_url(url, agents):
                     return pid
     return None
 
-# Add a new storage backend (simple file-based for now, could be DB)
-class WorkflowStorage:
-    def __init__(self, base_dir=None):
-        self.base_dir = base_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'workflows')
-        os.makedirs(self.base_dir, exist_ok=True)
-    
-    def save(self, workflow_id, data):
-        file_path = os.path.join(self.base_dir, f"{workflow_id}.json")
-        with open(file_path, 'w') as f:
-            json.dump(data, f)
-    
-    def load(self, workflow_id):
-        file_path = os.path.join(self.base_dir, f"{workflow_id}.json")
-        if not os.path.exists(file_path):
-            return None
-        with open(file_path, 'r') as f:
-            return json.load(f)
-    
-    def delete(self, workflow_id):
-        file_path = os.path.join(self.base_dir, f"{workflow_id}.json")
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
-# Initialize storage
-workflow_storage = WorkflowStorage()
-
 # Then modify routes to use workflow_id parameter instead of session
 @app.route('/')
 def index():
@@ -214,17 +200,15 @@ def url():
         # Create new workflow
         workflow_id = str(uuid.uuid4())
         
-        # Save initial data
-        workflow_data = {
-            'swagger_url': request.form.get('swagger_url', ''),
-            'landing_page_url': request.form.get('landing_page_url', ''),
-            'created_at': time.time(),
-            'status': 'processing'
+        # Initialize processing results entry
+        processing_results[workflow_id] = {
+            'status': 'processing',
+            'created_at': time.time()
         }
-        workflow_storage.save(workflow_id, workflow_data)
         
         # Start processing in background
         def process_api_data(proc_id, swagger_url, landing_page_url):
+            logger.info(f"Starting background processing for {proc_id}")
             try:
                 # Parse Swagger specification (now with URL detection)
                 from utils.swagger_utils import extract_swagger_info
@@ -258,19 +242,33 @@ def url():
                     'document_links': document_links,
                     'agents': agents,
                     'agents_error': agents_error,
-                    'address_data': address_data
+                    'address_data': address_data,
+                    'swagger_url': swagger_url,
+                    'landing_page_url': landing_page_url
                 }
                 
                 if save_processing_data(proc_id, processing_data):
                     # Mark processing as complete
-                    processing_results[proc_id]['status'] = 'complete'
+                    if proc_id in processing_results:
+                        processing_results[proc_id]['status'] = 'complete'
+                        logger.info(f"Processing completed for {proc_id}")
                 else:
-                    processing_results[proc_id]['status'] = 'error'
-                    processing_results[proc_id]['error'] = "Failed to save processing data"
+                    if proc_id in processing_results:
+                        processing_results[proc_id]['status'] = 'error'
+                        processing_results[proc_id]['error'] = "Failed to save processing data"
+                        logger.error(f"Failed to save processing data for {proc_id}")
                 
             except Exception as e:
-                processing_results[proc_id]['status'] = 'error'
-                processing_results[proc_id]['error'] = str(e)
+                logger.error(f"Exception in background processing for {proc_id}: {str(e)}")
+                if proc_id in processing_results:
+                    processing_results[proc_id]['status'] = 'error'
+                    processing_results[proc_id]['error'] = str(e)
+                else:
+                    # Create entry if it doesn't exist
+                    processing_results[proc_id] = {
+                        'status': 'error',
+                        'error': str(e)
+                    }
         
         # Start the background thread
         thread = threading.Thread(target=process_api_data, args=(workflow_id, request.form.get('swagger_url', ''), request.form.get('landing_page_url', '')))
@@ -281,7 +279,7 @@ def url():
         return redirect(url_for('loading', workflow_id=workflow_id))
     else:
         # Start new workflow
-        return render_template('url.html', current_step=1)
+        return render_template('url.html')
 
 @app.route('/loading')
 def loading():
@@ -290,30 +288,114 @@ def loading():
         return redirect(url_for('url'))
     
     return render_template('loading.html', 
-                          current_step=1, 
                           workflow_id=workflow_id)
 
 @app.route('/check_processing_status')
 def check_processing_status():
-    workflow_id = request.args.get('workflow_id')
-    if not workflow_id:
-        return jsonify({'status': 'error', 'message': 'No workflow ID provided'})
+    """
+    Simplified processing status check that works more reliably
+    """
+    # Get processing ID from query params or session
+    processing_id = request.args.get('processing_id') or session.get('processing_id')
     
-    workflow_data = workflow_storage.load(workflow_id)
-    if not workflow_data:
-        return jsonify({'status': 'error', 'message': 'Workflow not found'})
+    # Log for debugging
+    logger.info(f"Checking status for processing_id: {processing_id}")
+    logger.info(f"Available processing_results keys: {list(processing_results.keys())}")
     
-    return jsonify({'status': workflow_data.get('status', 'unknown')})
+    if not processing_id:
+        logger.warning("No processing_id found in request or session")
+        return jsonify({'status': 'error', 'message': 'No processing ID found'})
+    
+    # Store processing_id in session to maintain state
+    session['processing_id'] = processing_id
+    
+    # Check if processing result exists
+    if processing_id in processing_results:
+        result = processing_results[processing_id]
+        status = result.get('status', 'processing')
+        
+        logger.info(f"Processing status for {processing_id}: {status}")
+        
+        # If complete, load and store the results
+        if status == 'complete':
+            processing_data = load_processing_data(processing_id)
+            
+            if processing_data:
+                logger.info(f"Processing data loaded for {processing_id}")
+                
+                # Ensure session is permanent and saved
+                session.permanent = True
+                
+                # Store essential data in session
+                session['swagger_info'] = processing_data.get('swagger_info', {})
+                session['landing_page_content'] = processing_data.get('landing_page_content', '')
+                session['document_links'] = processing_data.get('document_links', [])
+                session['processing_status'] = 'complete'
+                session['swagger_url'] = processing_data.get('swagger_url', '')
+                session['landing_page_url'] = processing_data.get('landing_page_url', '')
+                
+                logger.info(f"URLs stored in session - swagger: {session['swagger_url']}, landing: {session['landing_page_url']}")
+                logger.info(f"Session data set - keys: {list(session.keys())}")
+                
+                # Store address data if available
+                if 'address_data' in processing_data:
+                    session['address_data'] = processing_data['address_data']
+                
+                # Handle agents separately due to potential size
+                if 'agents' in processing_data:
+                    agents_temp_id = str(uuid.uuid4())
+                    save_processing_data(agents_temp_id, {'agents': processing_data['agents']})
+                    session['agents_temp_id'] = agents_temp_id
+                
+                # Store agents error if applicable
+                if 'agents_error' in processing_data:
+                    session['agents_error'] = processing_data['agents_error']
+                
+                # Clean up
+                del processing_results[processing_id]
+                
+                return jsonify({'status': 'complete'})
+            else:
+                logger.error(f"Failed to load processing data for {processing_id}")
+                return jsonify({'status': 'error', 'message': 'Failed to load processing data'})
+                
+        elif status == 'error':
+            error_msg = result.get('error', 'Unknown error')
+            logger.error(f"Processing error for {processing_id}: {error_msg}")
+            
+            session['processing_status'] = 'error'
+            session['processing_error'] = error_msg
+            
+            # Clean up
+            del processing_results[processing_id]
+            
+            return jsonify({'status': 'error', 'message': error_msg})
+        else:
+            return jsonify({'status': 'processing'})
+    
+    # If we can't find the processing_id in our tracking dictionary
+    logger.warning(f"Processing ID {processing_id} not found in processing_results")
+    # Clear the processing_id from session since it's stale
+    if 'processing_id' in session:
+        del session['processing_id']
+    return jsonify({'status': 'error', 'message': 'Processing session expired. Please start over.'})  # Return error to force restart
 
 @app.route('/ai')
 def ai():
+    # Debug: Log session data
+    logger.info(f"[/ai] Session keys: {list(session.keys())}")
+    logger.info(f"[/ai] swagger_url in session: {'swagger_url' in session}")
+    logger.info(f"[/ai] processing_status: {session.get('processing_status')}")
+    
     # Check if we have the necessary data in the session
     if 'swagger_url' not in session:
+        logger.warning("[/ai] swagger_url not in session, redirecting to /url")
         flash("Please start from step 1.", "warning")
         return redirect(url_for('url'))
     
     # Check if processing is complete
     if session.get('processing_status') != 'complete':
+        logger.warning(f"[/ai] processing_status is '{session.get('processing_status')}', redirecting to /loading")
         return redirect(url_for('loading'))
     
     # Get data from session
@@ -466,8 +548,7 @@ def ai():
                           access_rights_code=access_rights_code,
                           access_rights_options=access_rights_options,
                           license_code=license_code,
-                          license_options=license_options,
-                          current_step=2)
+                          license_options=license_options)
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -478,12 +559,18 @@ def generate():
     if not swagger_url:
         return jsonify({"error": "No swagger URL provided. Please go back to step 1."})
 
+    # Import generate function from utils
+    from utils.openai_utils import generate_api_description
+
     # Call OpenAI to generate the API description
-    generated_content = generate_api_description(
-        swagger_url=swagger_url,
-        landing_page_url=landing_page_url,
-        landing_page_content=landing_page_content
-    )
+    try:
+        generated_content = generate_api_description(
+            swagger_url=swagger_url,
+            landing_page_url=landing_page_url,
+            landing_page_content=landing_page_content
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate content: {str(e)}"})
 
     # Store the generated content in the session or return an error
     if "error" in generated_content:
@@ -612,8 +699,7 @@ def translation():
                           title_it=title_it,
                           description_it=description_it,
                           keywords_it=keywords_it,
-                          contact_point=contact_point,
-                          current_step=3)
+                          contact_point=contact_point)
 
 @app.route('/upload', methods=['GET'])
 def upload():
@@ -790,11 +876,6 @@ def upload():
                     if not contact_point['note'].get(lang):
                         contact_point['note'][lang] = note
 
-    # Print debug info to console
-    print(f"DEBUG - translations: {translations}")
-    print(f"DEBUG - translations type: {type(translations)}")
-    print(f"DEBUG - contact_point: {session.get('contact_point')}")
-
     # Generate the JSON preview
     from utils.json_utils import generate_dcat_json
     json_data = generate_dcat_json(
@@ -811,6 +892,9 @@ def upload():
     )
     json_preview = json.dumps(json_data, indent=2)
 
+    # Store the latest JSON in session for download and API submission
+    session['latest_json_data'] = json_data
+
     # Render the template with editable fields
     return render_template('upload.html',
         translations=translations,
@@ -822,251 +906,49 @@ def upload():
         swagger_url=swagger_url,
         landing_page_url=landing_page_url,
         document_links=document_links,
-        json_preview=json_preview,
-        current_step=4
+        json_preview=json_preview
     )
-
-@app.route('/translate', methods=['POST'])
-def translate():
-    # Import our session utilities
-    from utils.session_utils import save_to_session_file, load_from_session_file
-    
-    # Get the content from the form
-    title_en = request.form.get('title_en', '')
-    description_en = request.form.get('description_en', '')
-    keywords_en = request.form.get('keywords_en', '')
-    title_de = request.form.get('title_de', '')
-    description_de = request.form.get('description_de', '')
-    keywords_de = request.form.get('keywords_de', '')
-    
-    # Validate required fields
-    if not title_en or not description_en:
-        flash("English title and description are required.", "danger")
-        return redirect(url_for('translation'))
-    
-    # Save to session
-    session['title_en'] = title_en
-    session['description_en'] = description_en
-    session['keywords_en'] = keywords_en
-    session['title_de'] = title_de
-    session['description_de'] = description_de
-    session['keywords_de'] = keywords_de
-    
-    # Process keywords - convert from comma-separated string to list
-    keywords_en_list = [kw.strip() for kw in keywords_en.split(',') if kw.strip()]
-    keywords_de_list = [kw.strip() for kw in keywords_de.split(',') if kw.strip()]
-    
-    try:
-        # Import translation functions
-        from utils.deepl_utils import translate_content, translate_from_english
-        
-        # First check if we have German content provided by user
-        if title_de and description_de and keywords_de:
-            # We have both English and German, so use both for translations
-            translations = translate_content(
-                title_de=title_de,
-                description_de=description_de,
-                keywords_de=keywords_de_list,
-                title_en=title_en,
-                description_en=description_en,
-                keywords_en=keywords_en_list
-            )
-        else:
-            # We only have English content, translate from English to all languages
-            translations = translate_from_english(
-                title_en=title_en,
-                description_en=description_en,
-                keywords_en=keywords_en_list
-            )
-        
-        # Instead of storing in session, save to file to avoid session size limitations
-        save_to_session_file('translations', translations)
-        # Keep a minimal reference in the cookie session
-        session['translations_available'] = True
-        
-        # Also preserve the contact point information if it exists
-        if 'contact_point' not in session:
-            # Initialize with default values
-            session['contact_point'] = {
-                "emailInternet": "",
-                "org": {"de": "", "en": "", "fr": "", "it": ""},
-                "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
-                "note": {"de": "", "en": "", "fr": "", "it": ""},
-                "telWorkVoice": ""
-            }
-        
-        flash("Translation completed successfully!", "success")
-        
-        # Redirect to final step
-        return redirect(url_for('upload'))
-    except Exception as e:
-        flash(f"Translation failed: {str(e)}", "danger")
-        return redirect(url_for('translation'))
-
-@app.route('/save_api_details', methods=['POST'])
-def save_api_details():
-    # Get all form data
-    title = request.form.get('title', '')
-    description = request.form.get('description', '')
-    keywords = request.form.get('keywords', '')
-    agency = request.form.get('agency', '')
-    access_rights_code = request.form.get('access_rights_code', 'PUBLIC')
-    license_code = request.form.get('license_code', '')
-    
-    # Get selected theme codes (multiple selection)
-    theme_codes = request.form.getlist('theme_codes')
-    
-    # Process keywords - convert from comma-separated string to list
-    keywords_list = [kw.strip() for kw in keywords.split(',') if kw.strip()]
-    
-    # Validate required fields
-    if not title:
-        flash("Title is required.", "danger")
-        return redirect(url_for('ai'))
-        
-    if not description:
-        flash("Description is required.", "danger")
-        return redirect(url_for('ai'))
-        
-    if not agency:
-        flash("Publisher is required.", "danger")
-        return redirect(url_for('ai'))
-    
-    # Save to session
-    session['generated_title'] = title
-    session['generated_description'] = description
-    session['generated_keywords'] = keywords_list
-    session['theme_codes'] = theme_codes
-    session['selected_agency'] = agency
-    session['access_rights_code'] = access_rights_code
-    session['license_code'] = license_code
-    
-    # Create initial translations structure
-    session['translations'] = {
-        'en': {
-            'title': title,
-            'description': description,
-            'keywords': keywords_list
-        },
-        'de': {'title': '', 'description': '', 'keywords': []},
-        'fr': {'title': '', 'description': '', 'keywords': []},
-        'it': {'title': '', 'description': '', 'keywords': []}
-    }
-    
-    # Get agents for publisher name resolution and prefill contact point
-    agents = get_cached_agents()
-    
-    # Initialize default contact point
-    contact_point = {
-        "emailInternet": "",
-        "telWorkVoice": "",
-        "org": {"de": "", "en": "", "fr": "", "it": ""},
-        "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
-        "note": {"de": "", "en": "", "fr": "", "it": ""}
-    }
-    
-    # Try to prefill from agency data
-    if agency and agents:
-        # Use dictionary access (not attribute access) since agents are dictionaries
-        selected_agent = next((a for a in agents if a.get('id') == agency), None)
-        if selected_agent:
-            # Get the organization name (multilingual if available)
-            if 'name' in selected_agent:
-                if isinstance(selected_agent['name'], dict):
-                    # Handle multilingual name
-                    for lang in ['de', 'en', 'fr', 'it']:
-                        if lang in selected_agent['name'] and selected_agent['name'][lang]:
-                            contact_point['org'][lang] = selected_agent['name'][lang]
-                else:
-                    # Use display_name as fallback for all languages
-                    display_name = selected_agent.get('display_name', 'Unknown Organization')
-                    for lang in ['de', 'en', 'fr', 'it']:
-                        contact_point['org'][lang] = display_name
-            
-            # Get address information if available
-            address_info = selected_agent.get('address', {})
-            if address_info and isinstance(address_info, dict):
-                # Extract email and phone if available
-                contact_point['emailInternet'] = address_info.get('email', '')
-                contact_point['telWorkVoice'] = address_info.get('phone', '')
-                
-                # Try to build a meaningful address string
-                parts = []
-                
-                # Add organization info if available
-                if 'organization' in address_info and isinstance(address_info['organization'], dict):
-                    org_name = address_info['organization'].get('name', {})
-                    if isinstance(org_name, dict):
-                        org_name_str = org_name.get('de') or org_name.get('en') or next(iter(org_name.values()), '')
-                        if org_name_str:
-                            parts.append(org_name_str)
-                
-                # Add department info if available
-                if 'department' in address_info and isinstance(address_info['department'], dict):
-                    dept_name = address_info['department'].get('name', {})
-                    if isinstance(dept_name, dict):
-                        dept_name_str = dept_name.get('de') or dept_name.get('en') or next(iter(dept_name.values()), '')
-                        if dept_name_str:
-                            parts.append(dept_name_str)
-                
-                address_str = ", ".join(parts)
-                
-                # Use the same address string for all languages for now
-                for lang in ['de', 'en', 'fr', 'it']:
-                    contact_point['adrWork'][lang] = address_str
-    
-    # Save contact point to session
-    session['contact_point'] = contact_point
-    
-    # Redirect to step 3 (translation page)
-    return redirect(url_for('translation'))
 
 @app.route('/download_json', methods=['GET', 'POST'])
 def download_json():
-    # Check if we have the necessary data
-    if 'translations' not in session:
-        return redirect(url_for('translation'))
-
-    # Get required data from session
-    translations = session.get('translations', {})
-    theme_codes = session.get('theme_codes', [])
-    selected_agency = session.get('selected_agency', '')
-    access_rights_code = session.get('access_rights_code', 'PUBLIC')
-    license_code = session.get('license_code', '')
-
-    # Get agents for publisher name resolution
-    agents = get_cached_agents()
-
-    # Generate the JSON
-    from utils.json_utils import generate_dcat_json
-
-    # Get contact point from session or use default, ensure fn is present
-    default_contact_point = {
-        "emailInternet": "",
-        "org": {"de": "", "en": "", "fr": "", "it": ""},
-        "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
-        "note": {"de": "", "en": "", "fr": "", "it": ""},
-        "telWorkVoice": "",
-        "fn": {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
-    }
-    contact_point = session.get('contact_point', default_contact_point)
-    if 'fn' not in contact_point or not isinstance(contact_point['fn'], dict):
-        contact_point['fn'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
-    for lang in ["de", "en", "fr", "it", "rm"]:
-        if lang not in contact_point['fn']:
-            contact_point['fn'][lang] = ""
-
-    json_data = generate_dcat_json(
-        translations=translations,
-        theme_codes=theme_codes,
-        agency_id=selected_agency,
-        swagger_url=session.get('swagger_url', ''),
-        landing_page_url=session.get('landing_page_url', ''),
-        agents_list=agents,
-        access_rights_code=access_rights_code,
-        license_code=license_code,
-        contact_point_override=contact_point
-    )
+    # Use the latest generated JSON from session if available
+    json_data = session.get('latest_json_data')
+    if not json_data:
+        # Fallback: regenerate if not present
+        translations = session.get('translations', {})
+        theme_codes = session.get('theme_codes', [])
+        selected_agency = session.get('selected_agency', '')
+        access_rights_code = session.get('access_rights_code', 'PUBLIC')
+        license_code = session.get('license_code', '')
+        agents = get_cached_agents()
+        default_contact_point = {
+            "emailInternet": "",
+            "org": {"de": "", "en": "", "fr": "", "it": ""},
+            "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
+            "note": {"de": "", "en": "", "fr": "", "it": ""},
+            "telWorkVoice": "",
+            "fn": {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+        }
+        contact_point = session.get('contact_point', default_contact_point)
+        if 'fn' not in contact_point or not isinstance(contact_point['fn'], dict):
+            contact_point['fn'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+        for lang in ["de", "en", "fr", "it", "rm"]:
+            if lang not in contact_point['fn']:
+                contact_point['fn'][lang] = ""
+        document_links = session.get('document_links', [])
+        from utils.json_utils import generate_dcat_json
+        json_data = generate_dcat_json(
+            translations=translations,
+            theme_codes=theme_codes,
+            agency_id=selected_agency,
+            swagger_url=session.get('swagger_url', ''),
+            landing_page_url=session.get('landing_page_url', ''),
+            agents_list=agents,
+            access_rights_code=access_rights_code,
+            license_code=license_code,
+            contact_point_override=contact_point,
+            document_links=document_links
+        )
 
     # Convert to pretty JSON string
     import json
@@ -1077,7 +959,7 @@ def download_json():
     from flask import send_file
 
     # Generate filename based on the API title
-    api_title = translations.get('en', {}).get('title', 'api')
+    api_title = json_data.get('title', {}).get('en', 'api')
     filename = f"{api_title.lower().replace(' ', '_')}_dcat.json"
 
     # Create in-memory file
@@ -1093,67 +975,52 @@ def download_json():
         download_name=filename
     )
 
-@app.route('/save_reviewed_content', methods=['POST'])
-def save_reviewed_content():
-    # Get the reviewed content from the form
-    title_en = request.form.get('title_en', '')
-    description_en = request.form.get('description_en', '')
-    keywords_en = request.form.get('keywords_en', '')
-    title_de = request.form.get('title_de', '')
-    description_de = request.form.get('description_de', '')
-    keywords_de = request.form.get('keywords_de', '')
-    title_fr = request.form.get('title_fr', '')
-    description_fr = request.form.get('description_fr', '')
-    keywords_fr = request.form.get('keywords_fr', '')
-    title_it = request.form.get('title_it', '')
-    description_it = request.form.get('description_it', '')
-    keywords_it = request.form.get('keywords_it', '')
-
-    # Process keywords - convert from comma-separated string to list
-    keywords_en_list = [kw.strip() for kw in keywords_en.split(',') if kw.strip()]
-    keywords_de_list = [kw.strip() for kw in keywords_de.split(',') if kw.strip()]
-    keywords_fr_list = [kw.strip() for kw in keywords_fr.split(',') if kw.strip()]
-    keywords_it_list = [kw.strip() for kw in keywords_it.split(',') if kw.strip()]
-
-    # Save the reviewed content to the session
-    session['translations'] = {
-        'en': {
-            'title': title_en,
-            'description': description_en,
-            'keywords': keywords_en_list
-        },
-        'de': {
-            'title': title_de,
-            'description': description_de,
-            'keywords': keywords_de_list
-        },
-        'fr': {
-            'title': title_fr,
-            'description': description_fr,
-            'keywords': keywords_fr_list
-        },
-        'it': {
-            'title': title_it,
-            'description': description_it,
-            'keywords': keywords_it_list
-        }
-    }
-
-    # Redirect to the final step (JSON preview)
-    return redirect(url_for('upload'))
-
 @app.route('/submit_to_i14y', methods=['POST'])
 def submit_to_i14y():
     """
     Submit the generated JSON data directly to the I14Y API
     """
     try:
-        # Check if we have the necessary data
-        if 'translations' not in session:
-            return jsonify({
-                'success': False, 
-                'error': 'No translation data found. Please complete the previous steps.'
-            })
+        # Use the latest generated JSON from session if available
+        json_data = session.get('latest_json_data')
+        if not json_data:
+            # Fallback: regenerate if not present
+            translations = session.get('translations', {})
+            theme_codes = session.get('theme_codes', [])
+            selected_agency = session.get('selected_agency', '')
+            swagger_url = session.get('swagger_url', '')
+            landing_page_url = session.get('landing_page_url', '')
+            access_rights_code = session.get('access_rights_code', 'PUBLIC')
+            license_code = session.get('license_code', '')
+            agents = get_cached_agents()
+            default_contact_point = {
+                "emailInternet": "",
+                "org": {"de": "", "en": "", "fr": "", "it": ""},
+                "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
+                "note": {"de": "", "en": "", "fr": "", "it": ""},
+                "telWorkVoice": "",
+                "fn": {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+            }
+            contact_point = session.get('contact_point', default_contact_point)
+            if 'fn' not in contact_point or not isinstance(contact_point['fn'], dict):
+                contact_point['fn'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+            for lang in ["de", "en", "fr", "it", "rm"]:
+                if lang not in contact_point['fn']:
+                    contact_point['fn'][lang] = ""
+            document_links = session.get('document_links', [])
+            from utils.json_utils import generate_dcat_json
+            json_data = generate_dcat_json(
+                translations=translations,
+                theme_codes=theme_codes,
+                agency_id=selected_agency,
+                swagger_url=swagger_url,
+                landing_page_url=landing_page_url,
+                agents_list=agents,
+                access_rights_code=access_rights_code,
+                license_code=license_code,
+                contact_point_override=contact_point,
+                document_links=document_links
+            )
 
         # Get the token from request
         request_data = request.get_json()
@@ -1213,6 +1080,9 @@ def submit_to_i14y():
             if lang not in contact_point['fn']:
                 contact_point['fn'][lang] = ""
 
+        # Always get document_links from session
+        document_links = session.get('document_links', [])
+
         # Generate the JSON data for I14Y
         from utils.json_utils import generate_dcat_json
         json_data = generate_dcat_json(
@@ -1224,7 +1094,8 @@ def submit_to_i14y():
             agents_list=agents,
             access_rights_code=access_rights_code,
             license_code=license_code,
-            contact_point_override=contact_point  # <-- ensure contact_point_override is passed
+            contact_point_override=contact_point,
+            document_links=document_links
         )
 
         # Submit to I14Y API

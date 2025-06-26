@@ -34,8 +34,7 @@ def detect_swagger_json_url(html_url):
         tuple: (detected_url, success_flag) where detected_url is the JSON URL or None
     """
     try:
-        print(f"🔍 Analyzing HTML page: {html_url}")
-        
+        # Analyzing HTML page
         # Fetch the HTML page
         response = requests.get(html_url, timeout=10)
         response.raise_for_status()
@@ -291,7 +290,7 @@ def extract_swagger_info(swagger_url, timeout=10):
         response.raise_for_status()
         
         fetch_time = time.time() - start_time
-        print(f"Swagger fetch completed in {fetch_time:.2f} seconds")
+        # Swagger fetch completed
         
         # Parse JSON efficiently
         try:
@@ -361,7 +360,7 @@ def extract_swagger_info(swagger_url, timeout=10):
                     })
         
         total_time = time.time() - start_time
-        print(f"Swagger parsing completed in {total_time:.2f} seconds")
+        # Swagger parsing completed
         
         # Build result
         result = {

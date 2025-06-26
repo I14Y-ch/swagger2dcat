@@ -7,8 +7,6 @@ try:
 except ImportError:
     DEEPL_API_KEY = os.getenv('DEEPL_API_KEY')
 
-print(f"[DEBUG] DEEPL_API_KEY: {DEEPL_API_KEY}")
-
 def translate_from_english(title_en, description_en, keywords_en):
     """
     Translate content from English to all other languages
@@ -17,7 +15,7 @@ def translate_from_english(title_en, description_en, keywords_en):
     try:
         translator = deepl.Translator(DEEPL_API_KEY)
     except Exception as e:
-        print(f"[ERROR] Failed to initialize DeepL Translator: {e}")
+        # Silent fallback to empty translations
         return {
             'en': {'title': title_en, 'description': description_en, 'keywords': keywords_en},
             'de': {'title': '', 'description': '', 'keywords': []},
@@ -25,7 +23,7 @@ def translate_from_english(title_en, description_en, keywords_en):
             'it': {'title': '', 'description': '', 'keywords': []},
             'rm': {'title': '', 'description': '', 'keywords': []}
         }
-    print(f"[DEBUG] Input to translate_from_english: title_en={title_en}, description_en={description_en}, keywords_en={keywords_en}")
+    
     # Initialize result dictionary
     translations = {
         'en': {
@@ -76,8 +74,8 @@ def translate_from_english(title_en, description_en, keywords_en):
                 for kw in keywords_en
             ]
     except Exception as e:
-        print(f"[ERROR] DeepL translation failed: {e}")
-    print(f"[DEBUG] Output from translate_from_english: {translations}")
+        pass  # Silent error handling
+    
     return translations
 
 def translate_content(title_de, description_de, keywords_de, title_en=None, description_en=None, keywords_en=None):
@@ -88,7 +86,7 @@ def translate_content(title_de, description_de, keywords_de, title_en=None, desc
     try:
         translator = deepl.Translator(DEEPL_API_KEY)
     except Exception as e:
-        print(f"[ERROR] Failed to initialize DeepL Translator: {e}")
+        # Silent fallback to empty translations
         return {
             'de': {'title': title_de, 'description': description_de, 'keywords': keywords_de},
             'en': {'title': title_en if title_en else '', 'description': description_en if description_en else '', 'keywords': keywords_en if keywords_en else []},
@@ -96,7 +94,7 @@ def translate_content(title_de, description_de, keywords_de, title_en=None, desc
             'it': {'title': '', 'description': '', 'keywords': []},
             'rm': {'title': '', 'description': '', 'keywords': []}
         }
-    print(f"[DEBUG] Input to translate_content: title_de={title_de}, description_de={description_de}, keywords_de={keywords_de}, title_en={title_en}, description_en={description_en}, keywords_en={keywords_en}")
+    
     # Initialize result dictionary
     translations = {
         'de': {
@@ -156,6 +154,6 @@ def translate_content(title_de, description_de, keywords_de, title_en=None, desc
                 for kw in source_kw
             ]
     except Exception as e:
-        print(f"[ERROR] DeepL translation failed: {e}")
-    print(f"[DEBUG] Output from translate_content: {translations}")
+        pass  # Silent error handling
+    
     return translations

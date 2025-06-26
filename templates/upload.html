@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 
-{% block title %}Step 4: Review and Download{% endblock %}
+{% block title %}Review and Submit{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1>Step 4: Review and Download</h1>
-    <p class="lead">Review and edit all metadata before upload or download.</p>
+<div class="container">
+    <h1>Review and Submit</h1>
+    <p class="lead">Review and edit all metadata before submitting to I14Y or downloading.</p>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}

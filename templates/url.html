@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 
-{% block title %}Step 1: Enter API URLs{% endblock %}
+{% block title %}Enter API URLs{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1>Step 1: Enter API URLs</h1>
-    <p class="lead">Please provide the Swagger/OpenAPI URL and (optionally) a landing page URL.</p>
+<div class="container">
+    <h1>Enter API URLs</h1>
+    <p class="lead">Provide the Swagger/OpenAPI URL and optionally a landing page URL.</p>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -26,7 +26,7 @@
         </div>
         <div class="form-group mb-4">
             <div class="d-flex justify-content-end">
-                <button type="submit" class="btn btn-primary">Go to AI</button>
+                <button type="submit" class="btn btn-primary">Next: Metadata</button>
             </div>
         </div>
     </form>

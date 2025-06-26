@@ -16,33 +16,16 @@
         </div>
     </nav>
 
-    <div class="container">
-        <div class="progress-container">
-            {% set steps = [
-                {'num': 1, 'label': 'URL', 'route': 'url'},
-                {'num': 2, 'label': 'AI', 'route': 'ai'},
-                {'num': 3, 'label': 'Translation', 'route': 'translation'},
-                {'num': 4, 'label': 'Upload', 'route': 'upload'}
-            ] %}
-            {% for step in steps %}
-                {% set status = 'active' if current_step == step.num else 'completed' if current_step > step.num else '' %}
-                {% set is_clickable = current_step > step.num or current_step == step.num %}
-                
-                {% if is_clickable %}
-                    <a href="{{ url_for(step.route, from_step=current_step) }}" class="step-link">
-                        <div class="step {{ status }} clickable">
-                            <div class="step-number">{{ step.num }}</div>
-                            <div class="step-label">{{ step.label }}</div>
-                        </div>
-                    </a>
-                {% else %}
-                    <div class="step {{ status }}">
-                        <div class="step-number">{{ step.num }}</div>
-                        <div class="step-label">{{ step.label }}</div>
-                    </div>
-                {% endif %}
-            {% endfor %}
-        </div>
+    <div class="container mt-4">
+        <!-- Simple breadcrumb navigation -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('url') }}">URL Input</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('ai') }}">Metadata</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('translation') }}">Translation</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('upload') }}">Review & Submit</a></li>
+            </ol>
+        </nav>
     </div>
 
     {% block content %}{% endblock %}
