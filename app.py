@@ -608,120 +608,6 @@ def generate():
 
     return jsonify(generated_content)
 
-@app.route('/translation')
-def translation():
-    # Check if we have the necessary data in the session
-    if 'swagger_url' not in session:
-        flash("Please start from step 1.", "warning")
-        return redirect(url_for('url'))
-    
-    # Import session utilities
-    from utils.session_utils import save_to_session_file, load_from_session_file, restore_all_data_from_files
-    
-    # Restore all data from persistent storage for Docker reliability
-    restore_all_data_from_files()
-    
-    # Get restored API details for fallback values
-    api_details = load_from_session_file('api_details', {})
-    
-    # Check if we have metadata (prioritize session over generated, then api_details)
-    title = session.get('title') or session.get('generated_title', '') or api_details.get('title', '')
-    description = session.get('description') or session.get('generated_description', '') or api_details.get('description', '')
-    keywords = session.get('keywords') or session.get('generated_keywords', []) or api_details.get('keywords', [])
-    
-    if not title and not description:
-        flash("Please complete the API details step first.", "warning")
-        return redirect(url_for('ai'))
-    
-    # Format keywords as a string for display
-    if isinstance(keywords, list):
-        keywords_display = ', '.join(keywords)
-    else:
-        keywords_display = keywords
-    
-    # Get any existing translations
-    translations = load_from_session_file('translations', {})
-    # If not in file, try session for backward compatibility
-    if not translations:
-        translations = session.get('translations', {})
-    
-    # Initialize translations structure if it doesn't exist
-    if not translations:
-        # Create a basic translations structure with the English content
-        translations = {
-            'en': {
-                'title': title,
-                'description': description,
-                'keywords': keywords if isinstance(keywords, list) else []
-            },
-            'de': {'title': '', 'description': '', 'keywords': []},
-            'fr': {'title': '', 'description': '', 'keywords': []},
-            'it': {'title': '', 'description': '', 'keywords': []}
-        }
-        # Store in file instead of session to avoid size limits
-        save_to_session_file('translations', translations)
-        session['translations_available'] = True
-    
-    # German translations
-    title_de = ''
-    description_de = ''
-    keywords_de = ''
-    
-    # French translations
-    title_fr = ''
-    description_fr = ''
-    keywords_fr = ''
-    
-    # Italian translations
-    title_it = ''
-    description_it = ''
-    keywords_it = ''
-    
-    # If we have translations, extract them
-    if translations:
-        # German
-        if 'de' in translations:
-            title_de = translations['de'].get('title', '')
-            description_de = translations['de'].get('description', '')
-            keywords_de = ', '.join(translations['de'].get('keywords', []))
-        
-        # French
-        if 'fr' in translations:
-            title_fr = translations['fr'].get('title', '')
-            description_fr = translations['fr'].get('description', '')
-            keywords_fr = ', '.join(translations['fr'].get('keywords', []))
-        
-        # Italian
-        if 'it' in translations:
-            title_it = translations['it'].get('title', '')
-            description_it = translations['it'].get('description', '')
-            keywords_it = ', '.join(translations['it'].get('keywords', []))
-    
-    # Get contact point info from session (created in save_api_details)
-    contact_point = session.get('contact_point', {
-        "emailInternet": "",
-        "telWorkVoice": "",
-        "org": {"de": "", "en": "", "fr": "", "it": ""},
-        "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
-        "note": {"de": "", "en": "", "fr": "", "it": ""}
-    })
-    
-    # Display the translation template with contact point info
-    return render_template('translation.html',
-                          title=title,
-                          description=description,
-                          keywords=keywords_display,
-                          title_de=title_de,
-                          description_de=description_de,
-                          keywords_de=keywords_de,
-                          title_fr=title_fr,
-                          description_fr=description_fr,
-                          keywords_fr=keywords_fr,
-                          title_it=title_it,
-                          description_it=description_it,
-                          keywords_it=keywords_it,
-                          contact_point=contact_point)
-
 @app.route('/upload', methods=['GET'])
 def upload():
     # Check if we have the basic data in the session
@@ -776,8 +662,8 @@ def upload():
             session['translations'] = translations  # <-- ensure session is updated
         session['translations'] = translations  # <-- ensure session is updated
     elif not translations:
-        flash("Please complete the translation step first.", "warning")
-        return redirect(url_for('translation'))
+        flash("Please complete the API details step first.", "warning")
+        return redirect(url_for('ai'))
     
     # Initialize default contact point structure if missing
     default_contact_point = {
@@ -1364,9 +1250,8 @@ def save_api_details():
     """
     from utils.session_utils import save_to_session_file, load_from_session_file
 
-    # Check if this is from the AI form (has 'title' field) or translation form (has 'title_en' field)
+    # Check if this is from the AI form
     is_ai_form = 'title' in request.form and 'title_en' not in request.form
-    is_translation_form = 'title_en' in request.form
 
     if is_ai_form:
         # Handle AI form submission - save API details to session and files
@@ -1417,62 +1302,59 @@ def save_api_details():
         
         logger.info(f"Saved API details: title='{session['title'][:50]}...', keywords={len(keywords)}, themes={len(theme_codes)}, agency='{session['selected_agency']}'")
         
-        # Redirect to translation step
-        return redirect(url_for('translation'))
+        # NEW: Auto-generate translations and go directly to review
+        # Create initial translations structure with English content
+        title = session['title']
+        description = session['description']
+        keywords = session['keywords']
         
-    elif is_translation_form:
-        # Handle translation form submission
-        logger.info("Saving translations from translation form")
+        translations = {
+            'en': {
+                'title': title,
+                'description': description,
+                'keywords': keywords if isinstance(keywords, list) else []
+            },
+            'de': {'title': '', 'description': '', 'keywords': []},
+            'fr': {'title': '', 'description': '', 'keywords': []},
+            'it': {'title': '', 'description': '', 'keywords': []}
+        }
         
-        # Load existing API details from file (for Docker reliability)
-        api_details = load_from_session_file('api_details', {})
-        if api_details:
-            # Restore API details to session if they were lost
-            restored_keys = []
-            for key, value in api_details.items():
-                if key not in session or not session.get(key):
-                    session[key] = value
-                    restored_keys.append(key)
-            if restored_keys:
-                logger.info(f"Restored API details from file: {restored_keys}")
-        else:
-            logger.warning("No API details found in file storage - translations form may be missing data")
-        translations = load_from_session_file('translations', {}) or session.get('translations', {})
-        if not translations:
-            # Initialize if missing
-            translations = {
-                'en': {'title': '', 'description': '', 'keywords': []},
-                'de': {'title': '', 'description': '', 'keywords': []},
-                'fr': {'title': '', 'description': '', 'keywords': []},
-                'it': {'title': '', 'description': '', 'keywords': []}
-            }
-
-        # Update translations from form data
-        translations['en']['title'] = request.form.get('title_en', '')
-        translations['en']['description'] = request.form.get('description_en', '')
-        translations['en']['keywords'] = [kw.strip() for kw in request.form.get('keywords_en', '').split(',') if kw.strip()]
-        translations['de']['title'] = request.form.get('title_de', '')
-        translations['de']['description'] = request.form.get('description_de', '')
-        translations['de']['keywords'] = [kw.strip() for kw in request.form.get('keywords_de', '').split(',') if kw.strip()]
-        translations['fr']['title'] = request.form.get('title_fr', '')
-        translations['fr']['description'] = request.form.get('description_fr', '')
-        translations['fr']['keywords'] = [kw.strip() for kw in request.form.get('keywords_fr', '').split(',') if kw.strip()]
-        translations['it']['title'] = request.form.get('title_it', '')
-        translations['it']['description'] = request.form.get('description_it', '')
-        translations['it']['keywords'] = [kw.strip() for kw in request.form.get('keywords_it', '').split(',') if kw.strip()]
-
-        # Save to session and file
+        # Auto-translate if DeepL is available
+        try:
+            from utils.deepl_utils import translate_content
+            
+            # Try to translate to German, French, and Italian
+            for target_lang in ['de', 'fr', 'it']:
+                try:
+                    translated = translate_content(title, description, keywords, target_lang)
+                    if translated and not translated.get('error'):
+                        translations[target_lang] = {
+                            'title': translated.get('title', ''),
+                            'description': translated.get('description', ''),
+                            'keywords': translated.get('keywords', [])
+                        }
+                        logger.info(f"Auto-translated content to {target_lang}")
+                    else:
+                        logger.warning(f"Translation to {target_lang} failed: {translated.get('error', 'Unknown error')}")
+                except Exception as e:
+                    logger.warning(f"Translation to {target_lang} failed: {str(e)}")
+        except ImportError:
+            logger.info("DeepL translation not available - using empty translations")
+        except Exception as e:
+            logger.warning(f"Auto-translation failed: {str(e)}")
+        
+        # Save translations to persistent storage
         session['translations'] = translations
         save_to_session_file('translations', translations)
         session['translations_available'] = True
         
-        logger.info("Saved translations to session and file")
-
-        # Redirect to the next step (upload page)
+        logger.info("Auto-generated translations and proceeding to review")
+        
+        # Redirect directly to upload/review step
         return redirect(url_for('upload'))
     
     else:
-        # Unknown form type
+        # Unknown form type - only AI form is supported now
         logger.error("Unknown form submission to save_api_details")
         flash("Invalid form submission.", "error")
         return redirect(url_for('ai'))
