@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import urlparse, urljoin
+from utils.async_http import fetch_urls_sync, check_urls_sync
 
 def create_session_with_retries():
     """Create a requests session with retry strategy"""
@@ -23,20 +24,20 @@ def create_session_with_retries():
     
     return session
 
-def detect_swagger_json_url(html_url):
+def detect_swagger_json_url(html_url, timeout=10):
     """
     Try to detect the actual Swagger JSON URL from an HTML page by looking for .json links
     
     Args:
         html_url: URL to the HTML page (e.g., Swagger UI page)
+        timeout: Request timeout in seconds
     
     Returns:
         tuple: (detected_url, success_flag) where detected_url is the JSON URL or None
     """
     try:
-        # Analyzing HTML page
         # Fetch the HTML page
-        response = requests.get(html_url, timeout=10)
+        response = requests.get(html_url, timeout=timeout)
         response.raise_for_status()
         html_content = response.text
         
@@ -92,7 +93,7 @@ def detect_swagger_json_url(html_url):
             print(f"✅ Selected JSON URL: {selected_url}")
             return selected_url, True
         
-        # Strategy 4: Construct common Swagger endpoints and check if they exist
+        # Strategy 4: Construct common Swagger endpoints and check if they exist in parallel
         base_url = html_url.rstrip('/')
         if base_url.endswith('/swagger/index.html'):
             # Handle common Swagger UI path pattern
@@ -111,19 +112,18 @@ def detect_swagger_json_url(html_url):
             '/api/swagger.json'
         ]
         
-        for pattern in common_patterns:
-            test_url = base_url + pattern
-            try:
-                print(f"Testing potential JSON URL: {test_url}")
-                test_response = requests.head(test_url, timeout=5)
-                if test_response.status_code == 200:
-                    content_type = test_response.headers.get('content-type', '').lower()
-                    if 'json' in content_type or 'application/octet-stream' in content_type:
-                        print(f"✅ Found working JSON endpoint: {test_url}")
-                        return test_url, True
-            except Exception as e:
-                print(f"Error testing {test_url}: {str(e)}")
-                continue
+        # Build list of URLs to check
+        test_urls = [base_url + pattern for pattern in common_patterns]
+        
+        # Check all URLs in parallel
+        print(f"Testing {len(test_urls)} potential JSON endpoints in parallel...")
+        results = check_urls_sync(test_urls, timeout=5)
+        
+        # Check results
+        for url, is_accessible in results.items():
+            if is_accessible:
+                print(f"✅ Found working JSON endpoint: {url}")
+                return url, True
         
         # Strategy 5: For Swagger UI specifically, try to extract from the index.html
         if 'swagger' in html_url.lower() and 'index.html' in html_url.lower():
@@ -136,15 +136,15 @@ def detect_swagger_json_url(html_url):
                 f"{base_dir}/doc.json"
             ]
             
-            for possible_url in swagger_json_possibilities:
-                try:
-                    print(f"Trying possible Swagger JSON URL: {possible_url}")
-                    json_response = requests.head(possible_url, timeout=5)
-                    if json_response.status_code == 200:
-                        print(f"✅ Found working JSON URL: {possible_url}")
-                        return possible_url, True
-                except:
-                    continue
+            # Check these URLs in parallel
+            print(f"Testing {len(swagger_json_possibilities)} possible Swagger UI JSON URLs in parallel...")
+            special_results = check_urls_sync(swagger_json_possibilities, timeout=5)
+            
+            # Check results
+            for url, is_accessible in special_results.items():
+                if is_accessible:
+                    print(f"✅ Found working JSON URL: {url}")
+                    return url, True
                     
         # Strategy 6: For the specific example in the prompt
         if 'api.termdat.bk.admin.ch/swagger/index.html' in html_url:
@@ -182,14 +182,21 @@ def is_likely_json_url(url):
     if url_lower.endswith('.json'):
         return True
     
-    # API documentation endpoints
+    # Obvious JSON content type in URL
+    if 'content-type=application/json' in url_lower:
+        return True
+    
+    # API documentation endpoints that almost always serve JSON
     json_indicators = [
         'api-docs',
         'swagger.json',
         'openapi.json',
         '/v2/api-docs',
         '/v3/api-docs',
-        'swagger/v1/swagger.json'
+        'swagger/v1/swagger.json',
+        '.json?',  # URL with .json and query parameters
+        '/json/',  # URL with json directory
+        'api/schema'
     ]
     
     return any(indicator in url_lower for indicator in json_indicators)
@@ -230,9 +237,9 @@ def resolve_swagger_url(input_url, timeout=10):
                 print(f"Direct JSON URL test failed: {str(e)}")
         
         # If not a direct JSON URL or validation failed, try to detect from HTML
-        detected_url = detect_swagger_json_url(input_url, timeout)
+        detected_url, success = detect_swagger_json_url(input_url, timeout)
         
-        if detected_url:
+        if success and detected_url:
             return {
                 'json_url': detected_url,
                 'original_url': input_url,
@@ -272,15 +279,29 @@ def extract_swagger_info(swagger_url, timeout=10):
         print(f"Extracting Swagger info from: {swagger_url}")
         start_time = time.time()
         
-        # Resolve the URL to get the actual JSON endpoint
-        url_resolution = resolve_swagger_url(swagger_url, timeout)
-        actual_json_url = url_resolution['json_url']
+        # Quick check if this is obviously a JSON file by extension
+        is_direct_json = swagger_url.lower().endswith('.json')
         
-        if 'warning' in url_resolution:
-            print(f"Warning: {url_resolution['warning']}")
-        
-        if url_resolution['detected']:
-            print(f"Detected JSON URL: {actual_json_url}")
+        # If direct JSON URL, skip resolution step entirely
+        if is_direct_json:
+            print(f"Direct JSON URL detected by extension: {swagger_url}")
+            actual_json_url = swagger_url
+            url_resolution = {
+                'json_url': swagger_url,
+                'original_url': swagger_url,
+                'detected': False,
+                'direct_json': True  # Flag for direct JSON
+            }
+        else:
+            # Resolve the URL to get the actual JSON endpoint
+            url_resolution = resolve_swagger_url(swagger_url, timeout)
+            actual_json_url = url_resolution['json_url']
+            
+            if 'warning' in url_resolution:
+                print(f"Warning: {url_resolution['warning']}")
+            
+            if url_resolution['detected']:
+                print(f"Detected JSON URL: {actual_json_url}")
         
         # Use session with retries and timeout
         session = create_session_with_retries()
@@ -318,9 +339,9 @@ def extract_swagger_info(swagger_url, timeout=10):
             method_counts = {'GET': 0, 'POST': 0, 'PUT': 0, 'DELETE': 0, 'PATCH': 0}
             for path, operations in paths.items():
                 for method, details in operations.items():
-                    method_lower = method.lower()
-                    if method_lower in method_counts:
-                        method_counts[method_lower] += 1
+                    method_upper = method.upper()
+                    if method_upper in method_counts:
+                        method_counts[method_upper] += 1
             # Create summary line
             active_methods = [f"{count} {method}" for method, count in method_counts.items() if count > 0]
             method_summary = ", ".join(active_methods)
@@ -372,15 +393,22 @@ def extract_swagger_info(swagger_url, timeout=10):
             'additional_info': f"Extracted from Swagger/OpenAPI specification. Contains {len(paths)} endpoint paths.",
             'original_url': url_resolution['original_url'],
             'resolved_url': actual_json_url,
-            'url_detected': url_resolution['detected'],
-            'endpoint_short_descriptions': endpoint_short_descriptions
+            'url_detected': url_resolution.get('detected', False),
+            'direct_json': url_resolution.get('direct_json', False),
+            'endpoint_short_descriptions': endpoint_short_descriptions,
+            'processing_time': round(total_time, 2)
         }
         
         # Add detection info if URL was detected
-        if url_resolution['detected']:
+        if url_resolution.get('detected', False):
             result['url_detected'] = True
             result['original_url'] = url_resolution['original_url']
             result['additional_info'] += f" (JSON URL auto-detected from {url_resolution['original_url']})"
+        
+        # Add direct JSON info if it was a direct JSON file
+        if url_resolution.get('direct_json', False):
+            result['direct_json'] = True
+            result['additional_info'] += " (Direct JSON URL)"
         
         return result
         

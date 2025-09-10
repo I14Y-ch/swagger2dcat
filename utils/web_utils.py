@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 from urllib.parse import urlparse, urljoin
+from utils.async_http import fetch_urls_sync
 
 def detect_language_from_url(url):
     """
@@ -176,12 +177,26 @@ def extract_web_content(url):
         # Document extensions to look for
         doc_extensions = ['.pdf', '.doc', '.docx', '.odt', '.xls', '.xlsx', '.ppt', '.pptx']
         
-        # First fetch the main URL content
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
+        # Fetch all language variants in parallel
+        urls_to_fetch = list(language_urls.values())
+        
+        # Only fetch each URL once (remove duplicates)
+        unique_urls = list(set(urls_to_fetch))
+        
+        # Fetch all URLs in parallel
+        url_contents = fetch_urls_sync(unique_urls, timeout=10)
+        
+        # Process main URL content
+        main_content_tuple = url_contents.get(url, (None, 0))
+        main_content = main_content_tuple[0] if main_content_tuple else None
+        
+        if not main_content:
+            # Fallback to standard request if async failed
+            response = requests.get(url, timeout=10)
+            main_content = response.text
         
         # Parse the HTML
-        soup = BeautifulSoup(response.text, 'html.parser')
+        soup = BeautifulSoup(main_content, 'html.parser')
         
         # Extract the title
         title = ""
@@ -219,31 +234,28 @@ def extract_web_content(url):
         multilingual_doc_links[current_lang] = main_doc_links
         all_document_links.extend(main_doc_links)
         
-        # Try to fetch alternate language pages
+        # Process all other language variants
         for lang, lang_url in language_urls.items():
             if lang == current_lang or lang_url == url:
                 continue  # Skip the original URL we already processed
+                
+            # Get content from already fetched data
+            lang_content_tuple = url_contents.get(lang_url, (None, 0))
+            lang_content = lang_content_tuple[0] if lang_content_tuple else None
             
-            try:
-                # Fetch with short timeout to avoid long delays
-                lang_response = requests.get(lang_url, timeout=5)
-                if lang_response.status_code == 200:
-                    lang_soup = BeautifulSoup(lang_response.text, 'html.parser')
-                    lang_doc_links = extract_doc_links_from_soup(lang_soup, lang_url, doc_extensions)
-                    
-                    # Add to language-specific collection
-                    multilingual_doc_links[lang] = lang_doc_links
-                    
-                    # Add new unique documents to all_document_links
-                    # Use URL as key to avoid duplicates across languages
-                    existing_urls = [doc['href'] for doc in all_document_links]
-                    for doc in lang_doc_links:
-                        if doc['href'] not in existing_urls:
-                            all_document_links.append(doc)
-                    
-            except Exception:
-                # Continue on error - we'll still have the main language docs
-                continue
+            if lang_content:
+                lang_soup = BeautifulSoup(lang_content, 'html.parser')
+                lang_doc_links = extract_doc_links_from_soup(lang_soup, lang_url, doc_extensions)
+                
+                # Add to language-specific collection
+                multilingual_doc_links[lang] = lang_doc_links
+                
+                # Add new unique documents to all_document_links
+                # Use URL as key to avoid duplicates across languages
+                existing_urls = [doc['href'] for doc in all_document_links]
+                for doc in lang_doc_links:
+                    if doc['href'] not in existing_urls:
+                        all_document_links.append(doc)
         
         # Enhance document links with language information
         for doc in all_document_links:

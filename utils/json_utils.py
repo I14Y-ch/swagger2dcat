@@ -14,6 +14,16 @@ def get_publisher_name_from_agents(agency_id, agents_list):
             "rm": ""
         }
     
+    # Check if using the hardcoded "i14y-test-organisation" identifier
+    if agency_id == "i14y-test-organisation":
+        return {
+            "de": "I14Y Test Organisation",
+            "en": "I14Y Test Organisation",
+            "fr": "I14Y Test Organisation", 
+            "it": "I14Y Test Organisation",
+            "rm": ""
+        }
+    
     # Find the agent with matching ID
     for agent in agents_list:
         if agent.get('id') == agency_id:
@@ -39,30 +49,48 @@ def get_contact_points_from_agent(agency_id, agents_list):
     """
     Get contact points from the selected agency
     """
-    # Default contact point structure - removed fn as it's not used in the DCAT schema
+    # Default contact point structure matching I14Y Partner API VCardModel
     default_contact = {
-        "emailInternet": "",
-        "org": {
+        "fn": {
             "de": "Unbekannte Organisation",
             "en": "Unknown Organization",
             "fr": "Organisation inconnue",
-            "it": "Organizzazione sconosciuta"
+            "it": "Organizzazione sconosciuta",
+            "rm": ""
         },
-        "adrWork": {
+        "hasAddress": {
             "de": "",
             "en": "",
             "fr": "",
-            "it": ""
+            "it": "",
+            "rm": ""
         },
+        "hasEmail": "info@example.com",  # Required field for VCardModel
+        "hasTelephone": "",
+        "kind": "Organization",  # Required field for VCardModel
         "note": {
             "de": "Für weitere Informationen kontaktieren Sie uns.",
             "en": "For more information, contact us.",
             "fr": "Pour plus d'informations, contactez-nous.",
-            "it": "Per ulteriori informazioni, contattaci."
-        },
-        "telWorkVoice": ""
+            "it": "Per ulteriori informazioni, contattaci.",
+            "rm": ""
+        }
     }
     
+    # Check if using the hardcoded "i14y-test-organisation" identifier
+    if agency_id == "i14y-test-organisation":
+        # Special test organization contact details
+        test_contact = default_contact.copy()
+        test_contact["fn"] = {
+            "de": "I14Y Test Organisation",
+            "en": "I14Y Test Organisation",
+            "fr": "I14Y Test Organisation",
+            "it": "I14Y Test Organisation",
+            "rm": ""
+        }
+        test_contact["hasEmail"] = "info@i14y.admin.ch"
+        return test_contact
+        
     if not agents_list:
         return default_contact
     
@@ -80,15 +108,16 @@ def get_contact_points_from_agent(agency_id, agents_list):
     if 'name' in selected_agent and isinstance(selected_agent['name'], dict):
         for lang in ['de', 'en', 'fr', 'it']:
             if lang in selected_agent['name'] and selected_agent['name'][lang]:
-                default_contact["org"][lang] = selected_agent['name'][lang]
+                default_contact["fn"][lang] = selected_agent['name'][lang]
     else:
         # Fallback to display name for all languages
         display_name = selected_agent.get('display_name', 'Unknown')
-        default_contact["org"] = {
+        default_contact["fn"] = {
             "de": display_name,
             "en": display_name,
             "fr": display_name,
-            "it": display_name
+            "it": display_name,
+            "rm": ""
         }
     
     # Get address information if available
@@ -96,11 +125,11 @@ def get_contact_points_from_agent(agency_id, agents_list):
     if address_info:
         # Set email if available
         if address_info.get('email'):
-            default_contact["emailInternet"] = address_info['email']
+            default_contact["hasEmail"] = address_info['email']
         
         # Set phone if available
         if address_info.get('phone'):
-            default_contact["telWorkVoice"] = address_info['phone']
+            default_contact["hasTelephone"] = address_info['phone']
         
         # Build address string from department and organization info
         address_parts = []
@@ -113,26 +142,22 @@ def get_contact_points_from_agent(agency_id, agents_list):
             if dept_name:
                 address_parts.append(dept_name)
         
-        # Add organization name if different from display name
-        if address_info.get('organization') and isinstance(address_info['organization'], dict):
-            org_name = (address_info['organization'].get('de') or 
+            # Add organization name if different from display name
+            if address_info.get('organization') and isinstance(address_info['organization'], dict):
+                org_name = (address_info['organization'].get('de') or 
                        address_info['organization'].get('en') or 
                        list(address_info['organization'].values())[0] if address_info['organization'].values() else '')
-            if org_name and org_name != default_contact["org"]["de"]:
-                address_parts.append(org_name)
-        
-        # Create address string
+                if org_name and org_name != default_contact["fn"]["de"]:
+                    address_parts.append(org_name)        # Create address string
         if address_parts:
-            address_str = ", ".join(address_parts)
-            default_contact["adrWork"] = {
-                "de": address_str,
-                "en": address_str,
-                "fr": address_str,
-                "it": address_str
-            }
-        default_contact["fn"] = {
-            "de": "test"
-      }
+                address_str = ", ".join(address_parts)
+                default_contact["hasAddress"] = {
+                    "de": address_str,
+                    "en": address_str,
+                    "fr": address_str,
+                    "it": address_str,
+                    "rm": ""
+                }
     
     return default_contact
 
@@ -194,15 +219,55 @@ def generate_dcat_json(
             )
         ],
         "publisher": {
-            "id": agency_id,
-            "name": publisher_name
+            "identifier": "i14y-test-organisation"  # Fixed identifier as requested
         },
-        "contactPoints": [contact_point],
+        "contactPoints": [{
+            # Email is required - provide a default if not available
+            "hasEmail": contact_point.get("hasEmail", "info@example.com") if isinstance(contact_point, dict) else "info@example.com",
+            
+            # Organization name from fn or org fields
+            "org": {
+                "de": (contact_point.get("fn", {}).get("de") or 
+                       contact_point.get("org", {}).get("de") or "") if isinstance(contact_point, dict) else "",
+                "en": (contact_point.get("fn", {}).get("en") or 
+                       contact_point.get("org", {}).get("en") or "") if isinstance(contact_point, dict) else "",
+                "fr": (contact_point.get("fn", {}).get("fr") or 
+                       contact_point.get("org", {}).get("fr") or "") if isinstance(contact_point, dict) else "",
+                "it": (contact_point.get("fn", {}).get("it") or 
+                       contact_point.get("org", {}).get("it") or "") if isinstance(contact_point, dict) else ""
+            },
+            
+            # Address information from hasAddress or adrWork fields
+            "adrWork": {
+                "de": (contact_point.get("hasAddress", {}).get("de") or 
+                       contact_point.get("adrWork", {}).get("de") or "") if isinstance(contact_point, dict) else "",
+                "en": (contact_point.get("hasAddress", {}).get("en") or 
+                       contact_point.get("adrWork", {}).get("en") or "") if isinstance(contact_point, dict) else "",
+                "fr": (contact_point.get("hasAddress", {}).get("fr") or 
+                       contact_point.get("adrWork", {}).get("fr") or "") if isinstance(contact_point, dict) else "",
+                "it": (contact_point.get("hasAddress", {}).get("it") or 
+                       contact_point.get("adrWork", {}).get("it") or "") if isinstance(contact_point, dict) else ""
+            },
+            
+            # Note information
+            "note": {
+                "de": contact_point.get("note", {}).get("de", "") if isinstance(contact_point, dict) else "",
+                "en": contact_point.get("note", {}).get("en", "") if isinstance(contact_point, dict) else "",
+                "fr": contact_point.get("note", {}).get("fr", "") if isinstance(contact_point, dict) else "",
+                "it": contact_point.get("note", {}).get("it", "") if isinstance(contact_point, dict) else ""
+            },
+            
+            # Telephone information from hasTelephone or telWorkVoice fields
+            "telWorkVoice": (contact_point.get("hasTelephone") or 
+                            contact_point.get("telWorkVoice", "")) if isinstance(contact_point, dict) else ""
+        }],
         "themeCodes": theme_codes if theme_codes else [],
-        "accessRightCode": access_rights_code,
+        "accessRights": {
+            "code": access_rights_code
+        },
         "endpointUrls": [
             {
-                "href": swagger_url,
+                "uri": swagger_url,
                 "label": multi_label(
                     "API Endpunkt",
                     "API Endpoint",
@@ -213,7 +278,7 @@ def generate_dcat_json(
         ],
         "endpointDescriptions": [
             {
-                "href": swagger_url,
+                "uri": swagger_url,
                 "label": multi_label(
                     "API-Beschreibung (Swagger/OpenAPI)",
                     "API Description (Swagger/OpenAPI)",
@@ -224,7 +289,7 @@ def generate_dcat_json(
         ],
         "documents": [
             {
-                "href": swagger_url,
+                "uri": swagger_url,
                 "label": {
                     "de": translations.get('de', {}).get('title', '') or "API-Dokumentation (Swagger/OpenAPI)",
                     "en": translations.get('en', {}).get('title', '') or "API Documentation (Swagger/OpenAPI)",
@@ -235,7 +300,7 @@ def generate_dcat_json(
         ],
         "conformTos": [
             {
-                "href": "https://swagger.io/specification/",
+                "uri": "https://swagger.io/specification/",
                 "label": multi_label(
                     "Konform mit OpenAPI (Swagger) Spezifikation",
                     "Conforms to OpenAPI (Swagger) specification",
@@ -314,7 +379,7 @@ def generate_dcat_json(
     if landing_page_url:
         dcat_json["landingPages"] = [
             {
-                "href": landing_page_url,
+                "uri": landing_page_url,
                 "label": multi_label(
                     "Weitere Informationen",
                     "More information",
@@ -325,7 +390,7 @@ def generate_dcat_json(
         ]
         # Also add landing page to documents with all translations
         dcat_json["documents"].append({
-            "href": landing_page_url,
+            "uri": landing_page_url,
             "label": multi_label(
                 "Weitere Informationen",
                 "More information",
@@ -340,7 +405,7 @@ def generate_dcat_json(
             doc_type = doc['type'].upper() if doc['type'] else 'DOC'
             label_text = doc['label'] or f"Document ({doc_type})"
             dcat_json["documents"].append({
-                "href": doc['href'],
+                "uri": doc['href'],
                 "label": multi_label(
                     label_text,
                     label_text,

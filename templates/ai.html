@@ -5,7 +5,9 @@
 {% block content %}
 <div class="container">
     <h1>Review and Edit Metadata</h1>
-    <p class="lead">Review the extracted metadata and make any necessary changes.</p>
+    <p class="lead">
+        Review the extracted metadata and make any necessary adjustments. You can use AI to generate a description based on the information provided below. Note: The form data will be sent to the AI provider OpenAI for processing.
+    </p></p>
     
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}

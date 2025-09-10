@@ -19,11 +19,10 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+session_storage/
 
 # Virtual Environment
 venv/
-ENV/
-env/
 
 # Environment variables
 .env

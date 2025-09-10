@@ -78,8 +78,11 @@
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="emailInternet" class="form-label">Email:</label>
-                                <input type="email" class="form-control" id="emailInternet" name="emailInternet" value="{{ contact_point['emailInternet'] }}">
+                                <label for="emailInternet" class="form-label">Email: <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control" id="emailInternet" name="emailInternet" value="{{ contact_point['emailInternet'] }}" required>
+                                <div class="invalid-feedback">
+                                    Please provide a valid email address.
+                                </div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="telWorkVoice" class="form-label">Phone:</label>
@@ -371,28 +374,55 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-info">
-                    <small>
-                        <strong>How to get your I14Y token:</strong><br>
-                        1. Log in to the <a href="https://input.i14y.admin.ch" target="_blank">I14Y platform</a><br>
-                        2. Click on your user symbol in the top right corner<br>
-                        3. Copy the access token (format: "Bearer xxxxxxx")<br>
-                        <em>Note: The token will only be used for this request and immediately deleted.</em>
-                    </small>
+                <!-- Initial token input view -->
+                <div id="tokenInputView">
+                    <div class="alert alert-info">
+                        <small>
+                            <strong>How to get your I14Y token:</strong><br>
+                            1. Log in to the <a href="https://input.i14y.admin.ch" target="_blank">I14Y platform</a><br>
+                            2. Click on your user symbol in the top right corner<br>
+                            3. Copy the access token (format: "Bearer xxxxxxx")<br>
+                            <em>Note: The token will only be used for this request and immediately deleted.</em>
+                        </small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="apiToken" class="form-label">Access Token:</label>
+                        <input type="password" class="form-control" id="apiToken" placeholder="Bearer xxxxxxx" autocomplete="off">
+                    </div>
+                    <div id="tokenError" class="alert alert-danger d-none"></div>
                 </div>
-                <div class="mb-3">
-                    <label for="apiToken" class="form-label">Access Token:</label>
-                    <input type="password" class="form-control" id="apiToken" placeholder="Bearer xxxxxxx" autocomplete="off">
+                
+                <!-- Success view (hidden initially) -->
+                <div id="successView" class="d-none text-center">
+                    <div class="mb-4">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                    </div>
+                    <h4 class="mb-3">Successfully Submitted!</h4>
+                    <p class="mb-2">Your API metadata has been successfully sent to I14Y.</p>
+                    <div id="datasetIdContainer" class="mb-3">
+                        <small class="text-muted">Dataset ID: <span id="datasetIdText"></span></small>
+                    </div>
+                    <div id="i14yLinkContainer" class="mb-4">
+                        <a id="i14yLink" href="#" target="_blank" rel="noopener" class="btn btn-primary">
+                            <i class="bi bi-box-arrow-up-right me-2"></i>View in I14Y
+                        </a>
+                    </div>
                 </div>
-                <div id="tokenError" class="alert alert-danger d-none"></div>
-                <div id="tokenSuccess" class="alert alert-success d-none"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" onclick="submitToI14Y()" id="submitBtn">
-                    <span id="submitBtnText">Send to I14Y</span>
-                    <span id="submitBtnSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
-                </button>
+                <!-- Footer for token input view -->
+                <div id="tokenInputFooter">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="submitToI14Y()" id="submitBtn">
+                        <span id="submitBtnText">Send to I14Y</span>
+                        <span id="submitBtnSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
+                    </button>
+                </div>
+                
+                <!-- Footer for success view (hidden initially) -->
+                <div id="successFooter" class="d-none">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -402,6 +432,30 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Enable form validation
+        const reviewForm = document.getElementById('reviewForm');
+        reviewForm.classList.add('needs-validation');
+        reviewForm.setAttribute('novalidate', '');
+        
+        // Form validation on submit
+        reviewForm.addEventListener('submit', function(event) {
+            if (!reviewForm.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Make sure we're on the tab with errors
+                const invalidInputs = reviewForm.querySelectorAll(':invalid');
+                if (invalidInputs.length > 0) {
+                    // Find which tab contains the first invalid input
+                    const tabId = invalidInputs[0].closest('.tab-pane').id;
+                    // Activate that tab
+                    document.querySelector(`button[data-bs-target="#${tabId}"]`).click();
+                }
+            }
+            
+            reviewForm.classList.add('was-validated');
+        });
+
         // Initialize Bootstrap 5 tabs
         const triggerTabList = document.querySelectorAll('#reviewTabs button');
         triggerTabList.forEach(triggerEl => {
@@ -480,7 +534,6 @@
         });
 
         // Autosave logic
-        const reviewForm = document.getElementById('reviewForm');
         let autosaveTimeout = null;
         function autosaveReview() {
             if (autosaveTimeout) clearTimeout(autosaveTimeout);
@@ -501,24 +554,30 @@
 
     function showTokenModal() {
         const modal = new bootstrap.Modal(document.getElementById('tokenModal'));
-        // Clear previous inputs and messages
+        
+        // Reset to initial state
         document.getElementById('apiToken').value = '';
         document.getElementById('tokenError').classList.add('d-none');
-        document.getElementById('tokenSuccess').classList.add('d-none');
+        
+        // Show token input view, hide success view
+        document.getElementById('tokenInputView').classList.remove('d-none');
+        document.getElementById('successView').classList.add('d-none');
+        document.getElementById('tokenInputFooter').classList.remove('d-none');
+        document.getElementById('successFooter').classList.add('d-none');
+        
         modal.show();
     }
 
     function submitToI14Y() {
         const token = document.getElementById('apiToken').value.trim();
+        const email = document.getElementById('emailInternet').value.trim();
         const errorDiv = document.getElementById('tokenError');
-        const successDiv = document.getElementById('tokenSuccess');
         const submitBtn = document.getElementById('submitBtn');
         const submitBtnText = document.getElementById('submitBtnText');
         const submitBtnSpinner = document.getElementById('submitBtnSpinner');
 
-        // Reset messages
+        // Reset error message
         errorDiv.classList.add('d-none');
-        successDiv.classList.add('d-none');
 
         // Validate token format
         if (!token) {
@@ -529,6 +588,13 @@
 
         if (!token.toLowerCase().startsWith('bearer ')) {
             errorDiv.textContent = 'Token must start with "Bearer " (e.g., "Bearer xxxxxxx").';
+            errorDiv.classList.remove('d-none');
+            return;
+        }
+        
+        // Validate email
+        if (!email) {
+            errorDiv.textContent = 'Please enter an email address.';
             errorDiv.classList.remove('d-none');
             return;
         }
@@ -545,43 +611,55 @@
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                token: token
+                token: token,
+                email: email
             })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Compose the direct link if dataset_id is present
-                let linkHtml = '';
-                if (data.dataset_id) {
-                    const url = `https://input.i14y.admin.ch/catalog/dataservices/${data.dataset_id}`;
-                    linkHtml = `<br><a href="${url}" target="_blank" rel="noopener" class="mt-2 btn btn-outline-primary btn-sm">Open in I14Y</a>`;
+                // Switch to success view
+                document.getElementById('tokenInputView').classList.add('d-none');
+                document.getElementById('successView').classList.remove('d-none');
+                document.getElementById('tokenInputFooter').classList.add('d-none');
+                document.getElementById('successFooter').classList.remove('d-none');
+                
+                // Set dataset ID
+                const datasetId = data.dataset_id || '';
+                document.getElementById('datasetIdText').textContent = datasetId;
+                
+                // Set up I14Y link if we have a dataset ID
+                if (datasetId && datasetId !== 'Submitted successfully' && datasetId !== 'Generated') {
+                    // Use the public I14Y catalog URL instead of the admin portal
+                    const i14yUrl = `https://www.i14y.admin.ch/de/api-catalogue/${datasetId}`;
+                    document.getElementById('i14yLink').href = i14yUrl;
+                    document.getElementById('i14yLinkContainer').classList.remove('d-none');
+                } else {
+                    // Show a more general message if we don't have a specific dataset ID
+                    document.getElementById('i14yLinkContainer').classList.add('d-none');
+                    document.getElementById('datasetIdContainer').innerHTML = 
+                        '<p class="text-muted">Your data has been successfully submitted to I14Y.<br>' +
+                        'Check your I14Y dashboard to see the new entry.</p>';
                 }
-                successDiv.innerHTML = `
-                    <strong>Success!</strong> Your API has been submitted to I14Y.<br>
-                    <small>Dataset ID: ${data.dataset_id || 'Generated automatically'}</small>
-                    ${linkHtml}
-                `;
-                successDiv.classList.remove('d-none');
                 
                 // Clear the token input for security
                 document.getElementById('apiToken').value = '';
-                
-                // --- REMOVE auto-close modal ---
-                // setTimeout(() => {
-                //     bootstrap.Modal.getInstance(document.getElementById('tokenModal')).hide();
-                // }, 3000);
             } else {
+                // Show error message
                 errorDiv.textContent = data.error || 'An error occurred while submitting to I14Y.';
                 errorDiv.classList.remove('d-none');
+                
+                // Reset button state
+                submitBtn.disabled = false;
+                submitBtnText.textContent = 'Send to I14Y';
+                submitBtnSpinner.classList.add('d-none');
             }
         })
         .catch(error => {
             console.error('Error:', error);
             errorDiv.textContent = 'Network error occurred. Please try again.';
             errorDiv.classList.remove('d-none');
-        })
-        .finally(() => {
+            
             // Reset button state
             submitBtn.disabled = false;
             submitBtnText.textContent = 'Send to I14Y';
@@ -631,6 +709,25 @@
     /* Add hover effect to tabs */
     #reviewTabs .nav-link:hover {
         background-color: rgba(13, 110, 253, 0.1);
+    }
+    
+    /* Success view styling */
+    #successView {
+        padding: 1.5rem 0;
+    }
+    
+    #successView .bi-check-circle-fill {
+        color: #198754;
+    }
+    
+    #i14yLink {
+        padding: 0.5rem 1.5rem;
+    }
+    
+    #datasetIdContainer {
+        background-color: #f8f9fa;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
     }
 </style>
 {% endblock %}

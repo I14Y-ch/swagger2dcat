@@ -124,7 +124,8 @@ def get_cached_agents():
     # Fetch fresh data
     try:
         from utils.i14y_utils import get_agents
-        agents = get_agents()
+        # Get agents without fetching details by default for better performance
+        agents = get_agents(fetch_details=False)
         
         # Update cache
         agents_cache['data'] = agents
@@ -210,30 +211,107 @@ def url():
         def process_api_data(proc_id, swagger_url, landing_page_url):
             logger.info(f"Starting background processing for {proc_id}")
             try:
-                # Parse Swagger specification (now with URL detection)
-                from utils.swagger_utils import extract_swagger_info
+                # Record start time for performance tracking
+                process_start_time = time.time()
+                
+                # Update progress
+                if proc_id in processing_results:
+                    processing_results[proc_id]['progress'] = {
+                        'current_step': 'Parsing Swagger definition',
+                        'percent': 15,
+                        'steps_completed': 0,
+                        'total_steps': 3
+                    }
+                
+                # Step 1: Parse Swagger specification (with URL detection)
+                from utils.swagger_utils import extract_swagger_info, is_likely_json_url
+                
+                # Check if direct JSON URL to log that we're skipping detection
+                if is_likely_json_url(swagger_url):
+                    logger.info(f"Direct JSON URL detected, skipping URL discovery step: {swagger_url}")
+                
                 swagger_info = extract_swagger_info(swagger_url)
+                swagger_time = time.time() - process_start_time
                 
-                # Check if URL was auto-detected and log it
-                if swagger_info.get('url_detected'):
-                    pass  # Auto-detected JSON URL
+                # Update progress after swagger parsing
+                if proc_id in processing_results:
+                    processing_results[proc_id]['progress'] = {
+                        'current_step': 'Swagger definition parsed',
+                        'percent': 40,
+                        'steps_completed': 1,
+                        'total_steps': 3
+                    }
                 
-                # Extract content from landing page if provided
+                # Log performance metrics
+                logger.info(f"Swagger parsing completed in {swagger_time:.2f} seconds")
+                if swagger_info.get('processing_time'):
+                    logger.info(f"Swagger internal processing time: {swagger_info.get('processing_time')} seconds")
+                
+                # Flag for special information about the URL processing
+                if swagger_info.get('direct_json'):
+                    logger.info(f"Direct JSON URL processed without detection step: {swagger_url}")
+                elif swagger_info.get('url_detected'):
+                    logger.info(f"JSON URL auto-detected: {swagger_info.get('resolved_url')}")
+                
+                # Step 2: Extract content from landing page if provided
                 landing_page_content = ""
                 document_links = []
                 address_data = {}
-                if landing_page_url:
+                
+                # Update progress to landing page step
+                if proc_id in processing_results:
+                    processing_results[proc_id]['progress'] = {
+                        'current_step': 'Processing landing page',
+                        'percent': 50,
+                        'steps_completed': 1,
+                        'total_steps': 3
+                    }
+                
+                # Skip landing page processing if URL is empty
+                if landing_page_url and landing_page_url.strip():
+                    landing_start_time = time.time()
                     from utils.web_utils import extract_web_content
-                    # Now returns address_data as 5th value
+                    # Returns address_data as 5th value
                     web_title, web_description, web_content, doc_links, address_data = extract_web_content(landing_page_url)
                     
                     if web_content:
                         landing_page_content = web_description or web_content
                         document_links = doc_links
+                    
+                    landing_time = time.time() - landing_start_time
+                    logger.info(f"Landing page processing completed in {landing_time:.2f} seconds")
+                    logger.info(f"Extracted {len(document_links)} document links from landing page")
+                else:
+                    logger.info("Skipping landing page processing (no URL provided)")
                 
-                # Get the list of agents (using cache)
+                # Update progress after landing page
+                if proc_id in processing_results:
+                    processing_results[proc_id]['progress'] = {
+                        'current_step': 'Loading metadata',
+                        'percent': 75,
+                        'steps_completed': 2,
+                        'total_steps': 3
+                    }
+                
+                # Step 3: Get the list of agents (using cache)
+                agents_start_time = time.time()
                 agents = get_cached_agents()
                 agents_error = None if agents else "Failed to fetch agents"
+                agents_time = time.time() - agents_start_time
+                logger.info(f"Agents fetching completed in {agents_time:.2f} seconds")
+                
+                # Calculate total processing time
+                total_time = time.time() - process_start_time
+                logger.info(f"Total processing completed in {total_time:.2f} seconds")
+                
+                # Update progress to 99% (final steps)
+                if proc_id in processing_results:
+                    processing_results[proc_id]['progress'] = {
+                        'current_step': 'Finalizing',
+                        'percent': 99,
+                        'steps_completed': 3,
+                        'total_steps': 3
+                    }
                 
                 # Save processing data to temporary file
                 processing_data = {
@@ -244,7 +322,13 @@ def url():
                     'agents_error': agents_error,
                     'address_data': address_data,
                     'swagger_url': swagger_url,
-                    'landing_page_url': landing_page_url
+                    'landing_page_url': landing_page_url,
+                    'processing_metrics': {
+                        'swagger_time': swagger_time,
+                        'total_time': total_time,
+                        'direct_json': swagger_info.get('direct_json', False),
+                        'url_detected': swagger_info.get('url_detected', False)
+                    }
                 }
                 
                 if save_processing_data(proc_id, processing_data):
@@ -270,6 +354,14 @@ def url():
                         'error': str(e)
                     }
         
+        # Initialize progress tracking
+        processing_results[workflow_id]['progress'] = {
+            'current_step': 'Initializing...',
+            'percent': 5,
+            'steps_completed': 0,
+            'total_steps': 3
+        }
+        
         # Start the background thread
         thread = threading.Thread(target=process_api_data, args=(workflow_id, request.form.get('swagger_url', ''), request.form.get('landing_page_url', '')))
         thread.daemon = True
@@ -293,7 +385,7 @@ def loading():
 @app.route('/check_processing_status')
 def check_processing_status():
     """
-    Simplified processing status check that works more reliably
+    Improved processing status check that provides more detailed progress information
     """
     # Get processing ID from query params or session
     processing_id = request.args.get('processing_id') or session.get('processing_id')
@@ -316,8 +408,24 @@ def check_processing_status():
         
         logger.info(f"Processing status for {processing_id}: {status}")
         
+        # If processing, include any progress information
+        if status == 'processing':
+            # Return progress information if available
+            progress = result.get('progress', {})
+            step = progress.get('current_step', 'Analyzing API information')
+            percent = progress.get('percent', 25)  # Default progress value
+            
+            return jsonify({
+                'status': 'processing',
+                'progress': {
+                    'step': step,
+                    'percent': percent,
+                    'message': f"Processing: {step}"
+                }
+            })
+        
         # If complete, load and store the results
-        if status == 'complete':
+        elif status == 'complete':
             processing_data = load_processing_data(processing_id)
             
             if processing_data:
@@ -333,6 +441,10 @@ def check_processing_status():
                 session['processing_status'] = 'complete'
                 session['swagger_url'] = processing_data.get('swagger_url', '')
                 session['landing_page_url'] = processing_data.get('landing_page_url', '')
+                
+                # Store processing metrics if available
+                if 'processing_metrics' in processing_data:
+                    session['processing_metrics'] = processing_data['processing_metrics']
                 
                 logger.info(f"URLs stored in session - swagger: {session['swagger_url']}, landing: {session['landing_page_url']}")
                 logger.info(f"Session data set - keys: {list(session.keys())}")
@@ -370,8 +482,6 @@ def check_processing_status():
             del processing_results[processing_id]
             
             return jsonify({'status': 'error', 'message': error_msg})
-        else:
-            return jsonify({'status': 'processing'})
     
     # If we can't find the processing_id in our tracking dictionary
     logger.warning(f"Processing ID {processing_id} not found in processing_results")
@@ -617,6 +727,7 @@ def upload():
     
     # Import our session utilities
     from utils.session_utils import save_to_session_file, load_from_session_file, restore_all_data_from_files
+    from utils.i14y_utils import get_agents
 
     # Restore all data from persistent storage for Docker reliability
     restore_all_data_from_files()
@@ -708,28 +819,70 @@ def upload():
     
     # Initialize default contact point structure if missing
     default_contact_point = {
-        "emailInternet": "",
+        "fn": {"de": "", "en": "", "fr": "", "it": "", "rm": ""},
+        "hasAddress": {"de": "", "en": "", "fr": "", "it": "", "rm": ""},
+        "hasEmail": "",
+        "hasTelephone": "",
+        "kind": "Organization",
+        "note": {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+    }
+    
+    # Backward compatibility for template - provide 'org' and 'adrWork' for templates
+    template_contact_point = {
         "org": {"de": "", "en": "", "fr": "", "it": ""},
         "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
-        "note": {"de": "", "en": "", "fr": "", "it": ""},
+        "emailInternet": "",
         "telWorkVoice": "",
-        "fn": {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+        "note": {"de": "", "en": "", "fr": "", "it": ""}
     }
 
     # Load address_data from session if available (set in check_processing_status)
     address_data = session.get('address_data', {})
-
+    
+    # Fetch detailed agency information if we have a selected agency
+    agency_details = {}
+    if selected_agency:
+        logger.info(f"[/upload] Fetching details for agency ID: {selected_agency}")
+        try:
+            import requests
+            response = requests.get(
+                f"https://input.i14y.admin.ch/api/Agent/{selected_agency}",
+                timeout=5
+            )
+            if response.status_code == 200:
+                agency_details = response.json()
+                logger.info(f"[/upload] Successfully fetched agency details for {agency_details.get('id')}")
+                
+                # If we have contact information from the agency, create an address_data structure
+                if agency_details.get('contactPoint'):
+                    cp = agency_details['contactPoint']
+                    # Only overwrite address_data if it's empty
+                    if not address_data:
+                        address_data = {
+                            'address': cp.get('hasAddress', {}).get('en', ''),
+                            'email': cp.get('hasEmail', ''),
+                            'phone': cp.get('hasTelephone', ''),
+                            'organization': agency_details.get('name', {}).get('en', ''),
+                            'note': cp.get('note', '')
+                        }
+                        session['address_data'] = address_data
+                        logger.info(f"[/upload] Created address_data from agency details")
+        except Exception as e:
+            logger.error(f"[/upload] Error fetching agency details: {str(e)}")
+    
     # Allow editing of all fields
     if request.method == 'POST':
         # Get contact point from session or use default
-        contact_point = session.get('contact_point', default_contact_point)
-        # Ensure fn field exists and has all required languages
-        if 'fn' not in contact_point or not isinstance(contact_point['fn'], dict):
-            contact_point['fn'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
-        for lang in ["de", "en", "fr", "it", "rm"]:
-            if lang not in contact_point['fn']:
-                contact_point['fn'][lang] = ""
-
+        contact_point = session.get('contact_point', default_contact_point)        # Remove fn field if present - not needed for I14Y API
+        if 'fn' in contact_point:
+            del contact_point['fn']
+                
+        # Validate required fields
+        email = request.form.get('emailInternet', '').strip()
+        if not email:
+            flash("Email address is required.", "danger")
+            return redirect(url_for('upload'))
+        
         # Save all reviewed content from the form
         translations['en']['title'] = request.form.get('title_en', '')
         translations['en']['description'] = request.form.get('description_en', '')
@@ -751,20 +904,24 @@ def upload():
         contact_point['fn']['it'] = ""
         contact_point['fn']['rm'] = ""
 
-        contact_point['org']['de'] = request.form.get('org_de', '')
-        contact_point['org']['en'] = request.form.get('org_en', '')
-        contact_point['org']['fr'] = request.form.get('org_fr', '')
-        contact_point['org']['it'] = request.form.get('org_it', '')
-        contact_point['adrWork']['de'] = request.form.get('adr_de', '')
-        contact_point['adrWork']['en'] = request.form.get('adr_en', '')
-        contact_point['adrWork']['fr'] = request.form.get('adr_fr', '')
-        contact_point['adrWork']['it'] = request.form.get('adr_it', '')
-        contact_point['emailInternet'] = request.form.get('emailInternet', '')
-        contact_point['telWorkVoice'] = request.form.get('telWorkVoice', '')
+        contact_point['fn']['de'] = request.form.get('org_de', '')
+        contact_point['fn']['en'] = request.form.get('org_en', '')
+        contact_point['fn']['fr'] = request.form.get('org_fr', '')
+        contact_point['fn']['it'] = request.form.get('org_it', '')
+        contact_point['fn']['rm'] = ""
+        contact_point['hasAddress']['de'] = request.form.get('adr_de', '')
+        contact_point['hasAddress']['en'] = request.form.get('adr_en', '')
+        contact_point['hasAddress']['fr'] = request.form.get('adr_fr', '')
+        contact_point['hasAddress']['it'] = request.form.get('adr_it', '')
+        contact_point['hasAddress']['rm'] = ""
+        contact_point['hasEmail'] = request.form.get('emailInternet', '')
+        contact_point['hasTelephone'] = request.form.get('telWorkVoice', '')
         contact_point['note']['de'] = request.form.get('note_de', '')
         contact_point['note']['en'] = request.form.get('note_en', '')
         contact_point['note']['fr'] = request.form.get('note_fr', '')
         contact_point['note']['it'] = request.form.get('note_it', '')
+        contact_point['note']['rm'] = ""
+        contact_point['kind'] = "Organization"
 
         # Process document links
         doc_labels = request.form.getlist('doc_label[]')
@@ -797,12 +954,21 @@ def upload():
         # Re-render the page with updated data
     else:
         contact_point = session.get('contact_point', default_contact_point)
-        # Ensure fn field exists and has all required languages
-        if 'fn' not in contact_point or not isinstance(contact_point['fn'], dict):
-            contact_point['fn'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
-        for lang in ["de", "en", "fr", "it", "rm"]:
-            if lang not in contact_point['fn']:
-                contact_point['fn'][lang] = ""
+        # Ensure backward compatibility with template fields
+        if 'org' not in contact_point:
+            contact_point['org'] = {"de": "", "en": "", "fr": "", "it": ""}
+        if 'adrWork' not in contact_point:
+            contact_point['adrWork'] = {"de": "", "en": "", "fr": "", "it": ""}
+        if 'emailInternet' not in contact_point:
+            contact_point['emailInternet'] = contact_point.get('hasEmail', '')
+        if 'telWorkVoice' not in contact_point:
+            contact_point['telWorkVoice'] = contact_point.get('hasTelephone', '')
+            
+        # Copy from fn to org for compatibility if fn exists
+        if 'fn' in contact_point:
+            for lang in ['de', 'en', 'fr', 'it']:
+                if contact_point['fn'].get(lang):
+                    contact_point['org'][lang] = contact_point['fn'].get(lang, '')
 
         # --- Prefill contact point fields from address_data if available and fields are empty ---
         if address_data:
@@ -812,18 +978,31 @@ def upload():
             # Prefill phone
             if not contact_point.get('telWorkVoice'):
                 contact_point['telWorkVoice'] = address_data.get('phone', '')
-            # Prefill org (all languages)
-            org_name = address_data.get('organization', '')
-            if org_name:
+            
+            # Prefill org name in all languages from agency_details if available
+            if agency_details and agency_details.get('name'):
+                for lang in ['de', 'en', 'fr', 'it']:
+                    if not contact_point['org'].get(lang) and agency_details['name'].get(lang):
+                        contact_point['org'][lang] = agency_details['name'].get(lang, '')
+            # If no agency_details, fall back to single org name from address_data
+            elif address_data.get('organization'):
+                org_name = address_data.get('organization', '')
                 for lang in ['de', 'en', 'fr', 'it']:
                     if not contact_point['org'].get(lang):
                         contact_point['org'][lang] = org_name
-            # Prefill address (all languages)
-            adr = address_data.get('address', '')
-            if adr:
+            
+            # Prefill address in all languages if available from agency_details
+            if agency_details and agency_details.get('contactPoint') and agency_details['contactPoint'].get('hasAddress'):
+                for lang in ['de', 'en', 'fr', 'it']:
+                    if not contact_point['adrWork'].get(lang) and agency_details['contactPoint']['hasAddress'].get(lang):
+                        contact_point['adrWork'][lang] = agency_details['contactPoint']['hasAddress'].get(lang, '')
+            # Fall back to single address from address_data
+            elif address_data.get('address'):
+                adr = address_data.get('address', '')
                 for lang in ['de', 'en', 'fr', 'it']:
                     if not contact_point['adrWork'].get(lang):
                         contact_point['adrWork'][lang] = adr
+            
             # Prefill note (all languages)
             note = address_data.get('note', '')
             if note:
@@ -833,16 +1012,29 @@ def upload():
 
     # Generate the JSON preview
     from utils.json_utils import generate_dcat_json
+    # Use agency identifier if available
+    publisher_identifier = agency_details.get('identifier', selected_agency)
+    
+    # Make a copy of contact_point with appropriate structure for json_utils
+    json_contact_point = {
+        "fn": contact_point.get('fn', contact_point.get('org', {})),
+        "hasAddress": contact_point.get('hasAddress', contact_point.get('adrWork', {})),
+        "hasEmail": contact_point.get('hasEmail', contact_point.get('emailInternet', '')),
+        "hasTelephone": contact_point.get('hasTelephone', contact_point.get('telWorkVoice', '')),
+        "kind": "Organization",
+        "note": contact_point.get('note', {})
+    }
+    
     json_data = generate_dcat_json(
         translations=translations,
         theme_codes=theme_codes,
-        agency_id=selected_agency,
+        agency_id=publisher_identifier,
         swagger_url=swagger_url,
         landing_page_url=landing_page_url,
         agents_list=agents,
         access_rights_code=access_rights_code,
         license_code=license_code,
-        contact_point_override=contact_point,
+        contact_point_override=json_contact_point,
         document_links=document_links
     )
     json_preview = json.dumps(json_data, indent=2)
@@ -855,9 +1047,25 @@ def upload():
     logger.info(f"[/upload] English title: '{translations.get('en', {}).get('title', 'MISSING')[:50]}...' if translations else 'No translations'")
     logger.info(f"[/upload] Contact point org en: '{contact_point.get('org', {}).get('en', 'MISSING')}'")
     
+    # Compatibility mapping for template
+    template_contact_point = contact_point.copy()
+    template_contact_point['org'] = {
+        'de': contact_point.get('fn', {}).get('de', ''),
+        'en': contact_point.get('fn', {}).get('en', ''),
+        'fr': contact_point.get('fn', {}).get('fr', ''),
+        'it': contact_point.get('fn', {}).get('it', '')
+    }
+    template_contact_point['adrWork'] = {
+        'de': contact_point.get('hasAddress', {}).get('de', ''),
+        'en': contact_point.get('hasAddress', {}).get('en', ''),
+        'fr': contact_point.get('hasAddress', {}).get('fr', ''),
+        'it': contact_point.get('hasAddress', {}).get('it', '')
+    }
+    template_contact_point['emailInternet'] = contact_point.get('hasEmail', '')
+    template_contact_point['telWorkVoice'] = contact_point.get('hasTelephone', '')
     return render_template('upload.html',
         translations=translations,
-        contact_point=contact_point,
+        contact_point=template_contact_point,
         theme_codes=theme_codes,
         selected_agency=selected_agency,
         access_rights_code=access_rights_code,
@@ -885,27 +1093,59 @@ def download_json():
             "org": {"de": "", "en": "", "fr": "", "it": ""},
             "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
             "note": {"de": "", "en": "", "fr": "", "it": ""},
-            "telWorkVoice": "",
-            "fn": {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+            "telWorkVoice": ""
         }
         contact_point = session.get('contact_point', default_contact_point)
-        if 'fn' not in contact_point or not isinstance(contact_point['fn'], dict):
-            contact_point['fn'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
-        for lang in ["de", "en", "fr", "it", "rm"]:
-            if lang not in contact_point['fn']:
-                contact_point['fn'][lang] = ""
+        
+        default_contact_point = {
+            "emailInternet": "",
+            "org": {"de": "", "en": "", "fr": "", "it": ""},
+            "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
+            "note": {"de": "", "en": "", "fr": "", "it": ""},
+            "telWorkVoice": ""
+        }
+        contact_point = session.get('contact_point', default_contact_point)
+        
+        # Remove fn field if present as it's not expected in the I14Y API schema
+        if 'fn' in contact_point:
+            del contact_point['fn']
         document_links = session.get('document_links', [])
+        
+        # Fetch agency details to get the correct identifier
+        agency_identifier = selected_agency
+        try:
+            import requests
+            response = requests.get(
+                f"https://input.i14y.admin.ch/api/Agent/{selected_agency}",
+                timeout=5
+            )
+            if response.status_code == 200:
+                agency_details = response.json()
+                agency_identifier = agency_details.get('identifier', selected_agency)
+        except Exception as e:
+            pass
+        
+        # Make a copy of contact_point with appropriate structure for json_utils
+        json_contact_point = {
+            "fn": contact_point.get('org', {}),
+            "hasAddress": contact_point.get('adrWork', {}),
+            "hasEmail": email or contact_point.get('emailInternet', ''),  # Use email from request if available
+            "hasTelephone": contact_point.get('telWorkVoice', ''),
+            "kind": "Organization",
+            "note": contact_point.get('note', {})
+        }
+
         from utils.json_utils import generate_dcat_json
         json_data = generate_dcat_json(
             translations=translations,
             theme_codes=theme_codes,
-            agency_id=selected_agency,
+            agency_id=agency_identifier,
             swagger_url=session.get('swagger_url', ''),
             landing_page_url=session.get('landing_page_url', ''),
             agents_list=agents,
             access_rights_code=access_rights_code,
             license_code=license_code,
-            contact_point_override=contact_point,
+            contact_point_override=json_contact_point,
             document_links=document_links
         )
 
@@ -937,7 +1177,7 @@ def download_json():
 @app.route('/submit_to_i14y', methods=['POST'])
 def submit_to_i14y():
     """
-    Submit the generated JSON data directly to the I14Y API
+    Submit the generated JSON data directly to the I14Y Partner API
     """
     try:
         # Import session utilities for data restoration
@@ -990,7 +1230,7 @@ def submit_to_i14y():
                 document_links=document_links
             )
 
-        # Get the token from request
+        # Get the token and email from request
         request_data = request.get_json()
         if not request_data or 'token' not in request_data:
             return jsonify({
@@ -999,6 +1239,7 @@ def submit_to_i14y():
             })
         
         token = request_data['token'].strip()
+        email = request_data.get('email', '')
         
         # Validate token format
         if not token.lower().startswith('bearer '):
@@ -1032,22 +1273,34 @@ def submit_to_i14y():
         # Get agents for publisher name resolution
         agents = get_cached_agents()
 
-        # Get contact point from session or use default, ensure fn is present
+        # Get contact point from session or use default
         default_contact_point = {
             "emailInternet": "",
             "org": {"de": "", "en": "", "fr": "", "it": ""},
             "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
             "note": {"de": "", "en": "", "fr": "", "it": ""},
-            "telWorkVoice": "",
-            "fn": {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+            "telWorkVoice": ""
         }
         contact_point = session.get('contact_point', default_contact_point)
-        if 'fn' not in contact_point or not isinstance(contact_point['fn'], dict):
-            contact_point['fn'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
-        for lang in ["de", "en", "fr", "it", "rm"]:
-            if lang not in contact_point['fn']:
-                contact_point['fn'][lang] = ""
-
+        
+        # Ensure contact_point is a dictionary
+        if not isinstance(contact_point, dict):
+            logger.warning(f"[submit_to_i14y] contact_point is not a dictionary: {type(contact_point)}")
+            contact_point = default_contact_point.copy()
+        
+        # Check if email is present and ensure it's properly set
+        email = request_data.get('email', contact_point.get('emailInternet', ''))
+        if email:
+            contact_point['emailInternet'] = email
+        
+        # If emailInternet is empty but we have input email, use it
+        if not contact_point.get('emailInternet') and email:
+            contact_point['emailInternet'] = email
+            
+        # Remove the fn field if present - it's not expected by the I14Y API schema
+        if 'fn' in contact_point:
+            del contact_point['fn']
+            
         # Always get document_links from session
         document_links = session.get('document_links', [])
 
@@ -1065,20 +1318,49 @@ def submit_to_i14y():
             contact_point_override=contact_point,
             document_links=document_links
         )
+        
+        # Ensure the email is set correctly in the JSON payload
+        if json_data.get('contactPoints') and isinstance(json_data['contactPoints'], list) and json_data['contactPoints']:
+            # Force the hasEmail field to the user-provided email
+            if email:
+                json_data['contactPoints'][0]['hasEmail'] = email
 
         # Submit to I14Y API
-        i14y_response = submit_data_to_i14y_api(json_data, token)
-        
-        if i14y_response['success']:
-            return jsonify({
-                'success': True,
-                'message': 'Successfully submitted to I14Y API',
-                'dataset_id': i14y_response.get('dataset_id')
-            })
-        else:
+        try:
+            logger.info(f"[submit_to_i14y] Calling submit_data_to_i14y_api with JSON data")
+            logger.info(f"[submit_to_i14y] Type of contact_point: {type(contact_point)}")
+            for key, value in contact_point.items():
+                logger.info(f"[submit_to_i14y] contact_point[{key}] = {type(value)}")
+            
+            i14y_response = submit_data_to_i14y_api(json_data, token)
+            
+            if i14y_response.get('success', False):
+                    guid = i14y_response.get('dataset_id', '')
+                    catalog_url = f"https://input.i14y.admin.ch/catalog/dataservices/{guid}/description?backto=dataservices" if guid else None
+                    return jsonify({
+                        'success': True,
+                        'message': 'Successfully submitted to I14Y API',
+                        'dataset_id': guid,
+                        'catalog_url': catalog_url
+                    })
+            else:
+                error_response = {
+                    'success': False,
+                    'error': i14y_response['error']
+                }
+                
+                # Include full error details if available
+                if 'full_error' in i14y_response:
+                    error_response['full_error'] = i14y_response['full_error']
+                    
+                return jsonify(error_response)
+        except Exception as e:
+            logger.error(f"[submit_to_i14y] Error during API submission: {str(e)}")
+            import traceback
+            logger.error(f"[submit_to_i14y] Traceback: {traceback.format_exc()}")
             return jsonify({
                 'success': False,
-                'error': i14y_response['error']
+                'error': f'Error during API submission: {str(e)}'
             })
 
     except Exception as e:
@@ -1089,7 +1371,7 @@ def submit_to_i14y():
 
 def submit_data_to_i14y_api(json_data, token):
     """
-    Submit data to the I14Y API endpoint
+    Submit data to the I14Y Partner API endpoint
     
     Args:
         json_data (dict): The DCAT JSON data to submit
@@ -1099,8 +1381,8 @@ def submit_data_to_i14y_api(json_data, token):
         dict: Response with success status and details
     """
     try:
-        # I14Y API endpoint
-        api_endpoint = "https://input.i14y.admin.ch/api/DataServiceInput"
+        # I14Y Partner API endpoint (new API)
+        api_endpoint = "https://api.i14y.admin.ch/api/partner/v1/dataservices"
         
         # Prepare headers
         headers = {
@@ -1109,10 +1391,25 @@ def submit_data_to_i14y_api(json_data, token):
             'Accept': 'application/json'
         }
         
+        # Debug print of json_data structure before submission
+        logger.info(f"[submit_data_to_i14y_api] Publisher identifier: {json_data.get('publisher', {}).get('identifier')}")
+        logger.info(f"[submit_data_to_i14y_api] Contact points: {type(json_data.get('contactPoints', []))}")
+        if json_data.get('contactPoints'):
+            for i, cp in enumerate(json_data.get('contactPoints', [])):
+                logger.info(f"[submit_data_to_i14y_api] Contact point {i}: {type(cp)}")
+                for k, v in cp.items():
+                    logger.info(f"[submit_data_to_i14y_api] Contact point {i} - {k}: {type(v)}")
+        
+        # Wrap the JSON data in a "data" field as required by the Partner API
+        # Also include the 'input' field required by the Partner API
+        wrapped_payload = {
+            "data": json_data
+        }
+        print(json_data)
         # Make the API request with timeout
         response = requests.post(
             api_endpoint,
-            json=json_data,
+            json=wrapped_payload,
             headers=headers,
             timeout=30  # 30 second timeout
         )
@@ -1120,6 +1417,19 @@ def submit_data_to_i14y_api(json_data, token):
         # Check if request was successful
         if response.status_code == 200 or response.status_code == 201:
             try:
+                # The I14Y Partner API returns a UUID string directly for successful submissions
+                response_text = response.text.strip().strip('"')
+                
+                # Check if response looks like a UUID (basic validation)
+                uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
+                if uuid_pattern.match(response_text):
+                    # It's a valid UUID
+                    return {
+                        'success': True,
+                        'dataset_id': response_text
+                    }
+                    
+                # Fallback to parsing as JSON if it's not a plain UUID string
                 response_data = response.json()
                 dataset_id = response_data.get('id') or response_data.get('datasetId') or 'Generated'
                 return {
@@ -1128,10 +1438,11 @@ def submit_data_to_i14y_api(json_data, token):
                     'response': response_data
                 }
             except json.JSONDecodeError:
-                # Some APIs return non-JSON success responses
+                # If it's not valid JSON but the status is success, use the response text as dataset_id
+                # This handles the case where the API returns just the UUID as plain text
                 return {
                     'success': True,
-                    'dataset_id': 'Submitted successfully',
+                    'dataset_id': response.text.strip().strip('"'),
                     'response': response.text
                 }
         
@@ -1150,9 +1461,21 @@ def submit_data_to_i14y_api(json_data, token):
             try:
                 error_data = response.json()
                 error_msg = error_data.get('message') or error_data.get('error') or 'Bad request'
+                # Get detailed error info, checking different possible structures
+                error_detail = ''
+                if 'detail' in error_data:
+                    error_detail = f"\nDetail: {json.dumps(error_data['detail'], indent=2)}"
+                elif 'errors' in error_data:
+                    error_detail = f"\nErrors: {json.dumps(error_data['errors'], indent=2)}"
+                elif 'validationErrors' in error_data:
+                    error_detail = f"\nValidation Errors: {json.dumps(error_data['validationErrors'], indent=2)}"
+                
+                print(f"I14Y Partner API Error Response: {json.dumps(error_data, indent=2)}")
+                
                 return {
                     'success': False,
-                    'error': f'API error: {error_msg}'
+                    'error': f'Partner API error: {error_msg}{error_detail}',
+                    'full_error': error_data
                 }
             except json.JSONDecodeError:
                 return {
@@ -1163,9 +1486,22 @@ def submit_data_to_i14y_api(json_data, token):
             try:
                 error_data = response.json()
                 error_msg = error_data.get('message') or error_data.get('error') or 'Validation failed'
+                
+                # Get detailed validation errors
+                error_detail = ''
+                if 'detail' in error_data:
+                    error_detail = f"\nDetail: {json.dumps(error_data['detail'], indent=2)}"
+                elif 'errors' in error_data:
+                    error_detail = f"\nErrors: {json.dumps(error_data['errors'], indent=2)}"
+                elif 'validationErrors' in error_data:
+                    error_detail = f"\nValidation Errors: {json.dumps(error_data['validationErrors'], indent=2)}"
+                
+                print(f"I14Y Partner API Validation Error: {json.dumps(error_data, indent=2)}")
+                
                 return {
                     'success': False,
-                    'error': f'Data validation failed: {error_msg}'
+                    'error': f'Data validation failed (Partner API): {error_msg}{error_detail}',
+                    'full_error': error_data
                 }
             except json.JSONDecodeError:
                 return {
@@ -1176,9 +1512,22 @@ def submit_data_to_i14y_api(json_data, token):
             try:
                 error_data = response.json()
                 error_msg = error_data.get('message') or error_data.get('error') or f'HTTP {response.status_code}'
+                
+                # Get detailed error info for any response format
+                error_detail = ''
+                if 'detail' in error_data:
+                    error_detail = f"\nDetail: {json.dumps(error_data['detail'], indent=2)}"
+                elif 'errors' in error_data:
+                    error_detail = f"\nErrors: {json.dumps(error_data['errors'], indent=2)}"
+                elif 'validationErrors' in error_data:
+                    error_detail = f"\nValidation Errors: {json.dumps(error_data['validationErrors'], indent=2)}"
+                
+                print(f"I14Y Partner API Error (HTTP {response.status_code}): {json.dumps(error_data, indent=2)}")
+                
                 return {
                     'success': False,
-                    'error': f'API error: {error_msg}'
+                    'error': f'Partner API error: {error_msg}{error_detail}',
+                    'full_error': error_data
                 }
             except json.JSONDecodeError:
                 return {
@@ -1188,7 +1537,7 @@ def submit_data_to_i14y_api(json_data, token):
     except requests.exceptions.Timeout:
         return {
             'success': False,
-            'error': 'Request timed out. The I14Y API may be temporarily unavailable.'
+            'error': 'Request timed out. The I14Y Partner API may be temporarily unavailable.'
         }
     except requests.exceptions.ConnectionError:
         return {
@@ -1205,6 +1554,124 @@ def submit_data_to_i14y_api(json_data, token):
             'success': False,
             'error': f'Internal server error: {str(e)}'
         }
+
+@app.route('/debug_i14y_json', methods=['GET'])
+def debug_i14y_json():
+    """Debug endpoint to view the exact JSON that would be sent to I14Y Partner API"""
+    try:
+        # Import session utilities for data restoration
+        from utils.session_utils import restore_all_data_from_files
+        
+        # Ensure all data is restored from persistent storage
+        restore_all_data_from_files()
+        
+        # Load required data
+        from utils.session_utils import load_from_session_file
+        translations = session.get('translations', {}) or load_from_session_file('translations', {})
+        theme_codes = session.get('theme_codes', [])
+        selected_agency = session.get('selected_agency', '')
+        swagger_url = session.get('swagger_url', '')
+        landing_page_url = session.get('landing_page_url', '')
+        access_rights_code = session.get('access_rights_code', 'PUBLIC')
+        license_code = session.get('license_code', '')
+        access_rights_code = session.get('access_rights_code', 'PUBLIC')
+        license_code = session.get('license_code', '')
+        agents = get_cached_agents()
+        
+        # Get contact point data
+        default_contact_point = {
+            "emailInternet": "",
+            "org": {"de": "", "en": "", "fr": "", "it": ""},
+            "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
+            "note": {"de": "", "en": "", "fr": "", "it": ""},
+            "telWorkVoice": ""
+        }
+        contact_point = session.get('contact_point', default_contact_point)
+        # Remove fn field if present
+        if 'fn' in contact_point:
+            del contact_point['fn']
+            
+        document_links = session.get('document_links', [])
+        
+        # Fetch agency details to get the correct identifier
+        agency_identifier = selected_agency
+        try:
+            import requests
+            response = requests.get(
+                f"https://input.i14y.admin.ch/api/Agent/{selected_agency}",
+                timeout=5
+            )
+            if response.status_code == 200:
+                agency_details = response.json()
+                agency_identifier = agency_details.get('identifier', selected_agency)
+        except Exception as e:
+            pass
+        
+        # Generate the JSON
+        from utils.json_utils import generate_dcat_json
+        json_data = generate_dcat_json(
+            translations=translations,
+            theme_codes=theme_codes,
+            agency_id=agency_identifier,
+            swagger_url=swagger_url,
+            landing_page_url=landing_page_url,
+            agents_list=agents,
+            access_rights_code=access_rights_code,
+            license_code=license_code,
+            contact_point_override=contact_point,
+            document_links=document_links
+        )
+        
+        # For debugging, let's see if we can detect any potential issues in the data
+        validation_notes = []
+        
+        # Check for empty or invalid fields
+        if not selected_agency:
+            validation_notes.append("WARNING: No agency/publisher selected")
+        
+        if 'en' not in translations or not translations['en'].get('title'):
+            validation_notes.append("WARNING: Missing English title")
+            
+        if 'en' not in translations or not translations['en'].get('description'):
+            validation_notes.append("WARNING: Missing English description")
+            
+        # Add contact point validation
+        if not contact_point.get('emailInternet'):
+            validation_notes.append("WARNING: No contact email specified")
+            
+        if not any(contact_point.get('org', {}).values()):
+            validation_notes.append("WARNING: No organization name in contact point")
+            
+        # Check for the 'fn' field which is not supported by I14Y Partner API
+        if 'fn' in contact_point:
+            validation_notes.append("WARNING: 'fn' field found in contact_point but will be removed before submission as it's not supported by the Partner API")
+        
+        # Add a note about the payload wrapping required by the Partner API
+        validation_notes.append("NOTE: For I14Y Partner API submission, the JSON will be wrapped in a 'data' field")
+        validation_notes.append("NOTE: Publisher is formatted as { \"identifier\": \"agency_id\" } for Partner API compatibility")
+        
+        # Create the wrapped payload that will be sent to the Partner API
+        wrapped_payload = {
+            "data": json_data
+        }
+            
+        # Create response with pretty-printed JSON for browser viewing
+        response_data = {
+            'json_data': json_data,
+            'wrapped_payload': wrapped_payload,
+            'validation_notes': validation_notes,
+            'pretty_json': json.dumps(json_data, indent=2, ensure_ascii=False),
+            'pretty_wrapped_payload': json.dumps(wrapped_payload, indent=2, ensure_ascii=False)
+        }
+        
+        # Return the JSON for inspection
+        return jsonify(response_data)
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        })
 
 @app.route('/autosave_review', methods=['POST'])
 def autosave_review():
@@ -1409,14 +1876,8 @@ def save_api_details():
         else:
             logger.error("ERROR: translations NOT saved to file!")
         
-        # Redirect directly to upload/review step
-        return redirect(url_for('upload'))
-    
-    else:
-        # Unknown form type - only AI form is supported now
-        logger.error("Unknown form submission to save_api_details")
-        flash("Invalid form submission.", "error")
-        return redirect(url_for('ai'))
+    # Redirect directly to upload/review step
+    return redirect(url_for('upload'))
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
