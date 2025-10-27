@@ -631,7 +631,7 @@
                 // Set up I14Y link if we have a dataset ID
                 if (datasetId && datasetId !== 'Submitted successfully' && datasetId !== 'Generated') {
                     // Use the public I14Y catalog URL instead of the admin portal
-                    const i14yUrl = `https://www.i14y.admin.ch/de/api-catalogue/${datasetId}`;
+                    const i14yUrl = `https://input.i14y.admin.ch/catalog/dataservices/${datasetId}/`;
                     document.getElementById('i14yLink').href = i14yUrl;
                     document.getElementById('i14yLinkContainer').classList.remove('d-none');
                 } else {
