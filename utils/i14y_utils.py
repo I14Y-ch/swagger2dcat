@@ -3,6 +3,10 @@ import json
 import os
 import time
 import pickle
+import logging
+
+# Get logger
+logger = logging.getLogger('swagger2dcat')
 
 # Constants
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache')
@@ -23,11 +27,14 @@ def get_agents(fetch_details=False):
     # Try to load from cache first
     cached_agents = _load_agents_from_cache()
     if cached_agents:
+        logger.info(f"Returning {len(cached_agents)} agents from cache")
         return cached_agents
     
     try:
         # Fetch agents from I14Y API
+        logger.info("Fetching agents from I14Y API: https://input.i14y.admin.ch/api/Agent")
         response = requests.get('https://input.i14y.admin.ch/api/Agent', timeout=10)
+        logger.info(f"I14Y API response status: {response.status_code}")
         response.raise_for_status()
         agents_data = response.json()
 
@@ -93,20 +100,7 @@ def get_agents(fetch_details=False):
         # Sort agents by display name
         processed_agents.sort(key=lambda x: x['display_name'])
         
-        # Save to cache
-        _save_agents_to_cache(processed_agents)
-        
-        return processed_agents
-
-    except Exception as e:
-        # If error occurs, try to return cached data even if expired
-        expired_cache = _load_agents_from_cache(ignore_expiry=True)
-        if expired_cache:
-            return expired_cache
-        return []
-
-        # Sort agents by display name
-        processed_agents.sort(key=lambda x: x['display_name'])
+        logger.info(f"Successfully processed {len(processed_agents)} agents from I14Y API")
         
         # Save to cache
         _save_agents_to_cache(processed_agents)
@@ -114,10 +108,16 @@ def get_agents(fetch_details=False):
         return processed_agents
 
     except Exception as e:
+        # Log the error with details
+        logger.error(f"Error fetching agents from I14Y API: {str(e)}", exc_info=True)
+        
         # If error occurs, try to return cached data even if expired
         expired_cache = _load_agents_from_cache(ignore_expiry=True)
         if expired_cache:
+            logger.info(f"Returning {len(expired_cache)} agents from expired cache")
             return expired_cache
+        
+        logger.warning("No cached agents available, returning empty list")
         return []
 
 def _load_agents_from_cache(ignore_expiry=False):
@@ -166,7 +166,9 @@ def _save_agents_to_cache(agents_data):
         # Save data to cache file
         with open(AGENTS_CACHE_FILE, 'wb') as f:
             pickle.dump(agents_data, f)
+        
+        logger.info(f"Saved {len(agents_data)} agents to cache")
     
     except Exception as e:
-        # Silently fail - caching is a nice-to-have
-        pass
+        # Log cache write failures - not critical but useful for debugging
+        logger.warning(f"Failed to save agents to cache: {str(e)}")
