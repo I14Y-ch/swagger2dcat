@@ -76,14 +76,18 @@ try:
 except Exception as e:
     logger.warning(f"Could not set permissions on session directory: {e}")
 
+# Configure session
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = session_dir
 app.config['SESSION_PERMANENT'] = False
-app.config['SESSION_USE_SIGNER'] = True
-app.config['SESSION_COOKIE_PATH'] = '/'  # <-- Fixed: cookie should work for root path
+app.config['SESSION_USE_SIGNER'] = False  # Disable signer to avoid bytes/string issues
+app.config['SESSION_KEY_PREFIX'] = ''
+app.config['SESSION_COOKIE_PATH'] = '/'
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 # Only use SECURE cookies if HTTPS is enabled
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('HTTPS_ENABLED', '').lower() == 'true'
+
+# Initialize Flask-Session
 Session(app)
 
 # Apply ProxyFix for correct proxy handling (important for Digital Ocean)
