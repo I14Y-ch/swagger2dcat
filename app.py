@@ -879,7 +879,7 @@ def upload():
         try:
             import requests
             response = requests.get(
-                f"https://input.i14y.admin.ch/api/Agent/{selected_agency}",
+                f"https://input-backend.i14y.c.bfs.admin.ch/api/Agent/{selected_agency}",
                 timeout=5
             )
             if response.status_code == 200:
@@ -1149,7 +1149,7 @@ def download_json():
         try:
             import requests
             response = requests.get(
-                f"https://input.i14y.admin.ch/api/Agent/{selected_agency}",
+                f"https://input-backend.i14y.c.bfs.admin.ch/api/Agent/{selected_agency}",
                 timeout=5
             )
             if response.status_code == 200:
@@ -1632,7 +1632,7 @@ def debug_i14y_json():
         try:
             import requests
             response = requests.get(
-                f"https://input.i14y.admin.ch/api/Agent/{selected_agency}",
+                f"https://input-backend.i14y.c.bfs.admin.ch/api/Agent/{selected_agency}",
                 timeout=5
             )
             if response.status_code == 200:

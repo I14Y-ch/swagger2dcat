@@ -32,8 +32,8 @@ def get_agents(fetch_details=False):
     
     try:
         # Fetch agents from I14Y API
-        logger.info("Fetching agents from I14Y API: https://input.i14y.admin.ch/api/Agent")
-        response = requests.get('https://input.i14y.admin.ch/api/Agent', timeout=10)
+        logger.info("Fetching agents from I14Y API: https://input-backend.i14y.c.bfs.admin.ch/api/Agent")
+        response = requests.get('https://input-backend.i14y.c.bfs.admin.ch/api/Agent', timeout=10)
         logger.info(f"I14Y API response status: {response.status_code}")
         response.raise_for_status()
         agents_data = response.json()
@@ -70,7 +70,7 @@ def get_agents(fetch_details=False):
                 try:
                     # Get detailed agent information directly from I14Y API
                     detail_response = requests.get(
-                        f"https://input.i14y.admin.ch/api/Agent/{agent['id']}",
+                        f"https://input-backend.i14y.c.bfs.admin.ch/api/Agent/{agent['id']}",
                         timeout=5
                     )
                     detail_response.raise_for_status()
