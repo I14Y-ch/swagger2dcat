@@ -714,7 +714,10 @@ def generate():
             landing_page_content=landing_page_content
         )
     except Exception as e:
-        return jsonify({"error": f"Failed to generate content: {str(e)}"})
+        logger.error(f"Failed to generate content: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "Failed to generate content. Please check your API configuration and try again."})
 
     # Store the generated content in the session or return an error
     if "error" in generated_content:
@@ -1386,13 +1389,16 @@ def submit_to_i14y():
             logger.error(f"[submit_to_i14y] Traceback: {traceback.format_exc()}")
             return jsonify({
                 'success': False,
-                'error': f'Error during API submission: {str(e)}'
+                'error': 'An error occurred during API submission. Please check your data and try again.'
             })
 
     except Exception as e:
+        logger.error(f"[submit_to_i14y] Internal server error: {str(e)}")
+        import traceback
+        logger.error(f"[submit_to_i14y] Traceback: {traceback.format_exc()}")
         return jsonify({
             'success': False,
-            'error': f'Internal server error: {str(e)}'
+            'error': 'An internal error occurred. Please try again later.'
         })
 
 def submit_data_to_i14y_api(json_data, token):
@@ -1691,10 +1697,11 @@ def debug_i14y_json():
         # Return the JSON for inspection
         return jsonify(response_data)
     except Exception as e:
+        logger.error(f"Error generating preview JSON: {str(e)}")
         import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({
-            'error': str(e),
-            'traceback': traceback.format_exc()
+            'error': 'An error occurred while generating the preview. Please check your input and try again.'
         })
 
 @app.route('/autosave_review', methods=['POST'])
