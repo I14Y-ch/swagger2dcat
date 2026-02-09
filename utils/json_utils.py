@@ -204,10 +204,14 @@ def generate_dcat_json(
         },
         "keywords": [
             {
-                "de": translations.get('de', {}).get('keywords', [])[i] if i < len(translations.get('de', {}).get('keywords', [])) else '',
-                "en": translations.get('en', {}).get('keywords', [])[i] if i < len(translations.get('en', {}).get('keywords', [])) else '',
-                "fr": translations.get('fr', {}).get('keywords', [])[i] if i < len(translations.get('fr', {}).get('keywords', [])) else '',
-                "it": translations.get('it', {}).get('keywords', [])[i] if i < len(translations.get('it', {}).get('keywords', [])) else ''
+                "label": {
+                    "de": translations.get('de', {}).get('keywords', [])[i] if i < len(translations.get('de', {}).get('keywords', [])) else '',
+                    "en": translations.get('en', {}).get('keywords', [])[i] if i < len(translations.get('en', {}).get('keywords', [])) else '',
+                    "fr": translations.get('fr', {}).get('keywords', [])[i] if i < len(translations.get('fr', {}).get('keywords', [])) else '',
+                    "it": translations.get('it', {}).get('keywords', [])[i] if i < len(translations.get('it', {}).get('keywords', [])) else '',
+                    "rm": ""
+                },
+                "uri": None
             }
             for i in range(
                 max(
