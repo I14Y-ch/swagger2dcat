@@ -139,8 +139,21 @@ def get_cached_agents():
 
 def save_processing_data(processing_id, data):
     """Save processing data to temporary file to avoid session size limits"""
+    # Validate processing_id to prevent path injection
+    import re
+    if not re.match(r'^[a-f0-9-]+$', processing_id):
+        logger.error(f"Invalid processing_id format: rejected for security")
+        return False
+    
     temp_dir = tempfile.gettempdir()
     temp_file = os.path.join(temp_dir, f"swagger2dcat_{processing_id}.pkl")
+    
+    # Ensure the file path is within temp directory (prevent path traversal)
+    real_temp_dir = os.path.realpath(temp_dir)
+    real_temp_file = os.path.realpath(temp_file)
+    if not real_temp_file.startswith(real_temp_dir):
+        logger.error("Path traversal attempt detected")
+        return False
     
     try:
         with open(temp_file, 'wb') as f:
@@ -152,8 +165,21 @@ def save_processing_data(processing_id, data):
 
 def load_processing_data(processing_id):
     """Load processing data from temporary file"""
+    # Validate processing_id to prevent path injection
+    import re
+    if not re.match(r'^[a-f0-9-]+$', processing_id):
+        logger.error(f"Invalid processing_id format: rejected for security")
+        return None
+    
     temp_dir = tempfile.gettempdir()
     temp_file = os.path.join(temp_dir, f"swagger2dcat_{processing_id}.pkl")
+    
+    # Ensure the file path is within temp directory (prevent path traversal)
+    real_temp_dir = os.path.realpath(temp_dir)
+    real_temp_file = os.path.realpath(temp_file)
+    if not real_temp_file.startswith(real_temp_dir):
+        logger.error("Path traversal attempt detected")
+        return None
     
     try:
         if os.path.exists(temp_file):
@@ -1391,21 +1417,19 @@ def submit_data_to_i14y_api(json_data, token):
             'Accept': 'application/json'
         }
         
-        # Debug print of json_data structure before submission
+        # Debug info - log structure but not sensitive data
         logger.info(f"[submit_data_to_i14y_api] Publisher identifier: {json_data.get('publisher', {}).get('identifier')}")
-        logger.info(f"[submit_data_to_i14y_api] Contact points: {type(json_data.get('contactPoints', []))}")
+        logger.info(f"[submit_data_to_i14y_api] Contact points count: {len(json_data.get('contactPoints', []))}")
         if json_data.get('contactPoints'):
-            for i, cp in enumerate(json_data.get('contactPoints', [])):
-                logger.info(f"[submit_data_to_i14y_api] Contact point {i}: {type(cp)}")
-                for k, v in cp.items():
-                    logger.info(f"[submit_data_to_i14y_api] Contact point {i} - {k}: {type(v)}")
+            logger.info(f"[submit_data_to_i14y_api] Contact point structure validated")
         
         # Wrap the JSON data in a "data" field as required by the Partner API
         # Also include the 'input' field required by the Partner API
         wrapped_payload = {
             "data": json_data
         }
-        print(json_data)
+        # Don't print full json_data as it may contain sensitive information
+        logger.debug(f"[submit_data_to_i14y_api] Payload prepared for submission")
         # Make the API request with timeout
         response = requests.post(
             api_endpoint,
