@@ -1182,15 +1182,20 @@ def download_json():
             document_links=document_links
         )
 
+    # Wrap the JSON data in a "data" field to match the POST request format
+    wrapped_payload = {
+        "data": json_data
+    }
+
     # Convert to pretty JSON string
     import json
-    json_string = json.dumps(json_data, indent=2)
+    json_string = json.dumps(wrapped_payload, indent=2)
 
     # Create a response with the JSON data
     import io
     from flask import send_file
 
-    # Generate filename based on the API title
+    # Generate filename based on the API title (from the nested data object)
     api_title = json_data.get('title', {}).get('en', 'api')
     filename = f"{api_title.lower().replace(' ', '_')}_dcat.json"
 
