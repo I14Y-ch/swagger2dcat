@@ -906,9 +906,15 @@ def upload():
     # Allow editing of all fields
     if request.method == 'POST':
         # Get contact point from session or use default
-        contact_point = session.get('contact_point', default_contact_point)        # Remove fn field if present - not needed for I14Y API
-        if 'fn' in contact_point:
-            del contact_point['fn']
+        contact_point = session.get('contact_point', default_contact_point.copy())
+        
+        # Ensure all required fields exist in the structure
+        if 'fn' not in contact_point or not isinstance(contact_point.get('fn'), dict):
+            contact_point['fn'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+        if 'hasAddress' not in contact_point or not isinstance(contact_point.get('hasAddress'), dict):
+            contact_point['hasAddress'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+        if 'note' not in contact_point or not isinstance(contact_point.get('note'), dict):
+            contact_point['note'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
                 
         # Validate required fields
         email = request.form.get('emailInternet', '').strip()
@@ -930,13 +936,7 @@ def upload():
         translations['it']['description'] = request.form.get('description_it', '')
         translations['it']['keywords'] = [kw.strip() for kw in request.form.get('keywords_it', '').split(',') if kw.strip()]
         
-        # Contact point fields - add fn field for all languages
-        contact_point['fn']['de'] = ""  # You can later allow editing, for now just empty string
-        contact_point['fn']['en'] = ""
-        contact_point['fn']['fr'] = ""
-        contact_point['fn']['it'] = ""
-        contact_point['fn']['rm'] = ""
-
+        # Contact point fields - ensure fn structure exists and populate it
         contact_point['fn']['de'] = request.form.get('org_de', '')
         contact_point['fn']['en'] = request.form.get('org_en', '')
         contact_point['fn']['fr'] = request.form.get('org_fr', '')
@@ -947,8 +947,16 @@ def upload():
         contact_point['hasAddress']['fr'] = request.form.get('adr_fr', '')
         contact_point['hasAddress']['it'] = request.form.get('adr_it', '')
         contact_point['hasAddress']['rm'] = ""
-        contact_point['hasEmail'] = request.form.get('emailInternet', '')
-        contact_point['hasTelephone'] = request.form.get('telWorkVoice', '')
+        
+        # Save email and phone to BOTH field names (for template AND JSON/API compatibility)
+        email_value = request.form.get('emailInternet', '')
+        contact_point['hasEmail'] = email_value
+        contact_point['emailInternet'] = email_value  # For template display
+        
+        phone_value = request.form.get('telWorkVoice', '')
+        contact_point['hasTelephone'] = phone_value
+        contact_point['telWorkVoice'] = phone_value  # For template display
+        
         contact_point['note']['de'] = request.form.get('note_de', '')
         contact_point['note']['en'] = request.form.get('note_en', '')
         contact_point['note']['fr'] = request.form.get('note_fr', '')
@@ -981,21 +989,34 @@ def upload():
         save_to_session_file('translations', translations)
         session['translations_available'] = True
         
-        # Save contact point - this is small enough for the session
+        # Save contact point to session - ensure hasEmail is set
         session['contact_point'] = contact_point
+        logger.info(f"[/upload POST] Saved contact_point with hasEmail: {contact_point.get('hasEmail', 'MISSING')}")
+        
         flash("Review changes saved. You can now submit or download the JSON.", "success")
         # Re-render the page with updated data
     else:
-        contact_point = session.get('contact_point', default_contact_point)
+        # GET request - load contact point from session
+        contact_point = session.get('contact_point', default_contact_point.copy())
+        logger.info(f"[/upload GET] loaded contact_point from session with hasEmail: {contact_point.get('hasEmail', 'MISSING')}")
+        
         # Ensure backward compatibility with template fields
         if 'org' not in contact_point:
             contact_point['org'] = {"de": "", "en": "", "fr": "", "it": ""}
         if 'adrWork' not in contact_point:
             contact_point['adrWork'] = {"de": "", "en": "", "fr": "", "it": ""}
+        
+        # Ensure both email field names exist and are synced
         if 'emailInternet' not in contact_point:
             contact_point['emailInternet'] = contact_point.get('hasEmail', '')
+        if 'hasEmail' not in contact_point:
+            contact_point['hasEmail'] = contact_point.get('emailInternet', '')
+        
+        # Ensure both phone field names exist and are synced
         if 'telWorkVoice' not in contact_point:
             contact_point['telWorkVoice'] = contact_point.get('hasTelephone', '')
+        if 'hasTelephone' not in contact_point:
+            contact_point['hasTelephone'] = contact_point.get('telWorkVoice', '')
             
         # Copy from fn to org for compatibility if fn exists
         if 'fn' in contact_point:
@@ -1005,12 +1026,16 @@ def upload():
 
         # --- Prefill contact point fields from address_data if available and fields are empty ---
         if address_data:
-            # Prefill email
-            if not contact_point.get('emailInternet'):
-                contact_point['emailInternet'] = address_data.get('email', '')
-            # Prefill phone
-            if not contact_point.get('telWorkVoice'):
-                contact_point['telWorkVoice'] = address_data.get('phone', '')
+            # Prefill email to BOTH field names
+            if not contact_point.get('emailInternet') and not contact_point.get('hasEmail'):
+                email_val = address_data.get('email', '')
+                contact_point['emailInternet'] = email_val
+                contact_point['hasEmail'] = email_val
+            # Prefill phone to BOTH field names
+            if not contact_point.get('telWorkVoice') and not contact_point.get('hasTelephone'):
+                phone_val = address_data.get('phone', '')
+                contact_point['telWorkVoice'] = phone_val
+                contact_point['hasTelephone'] = phone_val
             
             # Prefill org name in all languages from agency_details if available
             if agency_details and agency_details.get('name'):
@@ -1052,13 +1077,15 @@ def upload():
     # Make a copy of contact_point with appropriate structure for json_utils
     json_contact_point = {
         "fn": contact_point.get('fn', contact_point.get('org', {})),
+        "org": contact_point.get('org', {}),
         "hasAddress": contact_point.get('hasAddress', contact_point.get('adrWork', {})),
         "hasEmail": contact_point.get('hasEmail', contact_point.get('emailInternet', '')),
         "hasTelephone": contact_point.get('hasTelephone', contact_point.get('telWorkVoice', '')),
         "kind": "Organization",
         "note": contact_point.get('note', {})
     }
-    logger.info(f"[/upload] Email in json_contact_point: {json_contact_point.get('hasEmail', 'MISSING')}")
+    logger.info(f"[/upload] contact_point hasEmail: {contact_point.get('hasEmail', 'MISSING')}, emailInternet: {contact_point.get('emailInternet', 'MISSING')}")
+    logger.info(f"[/upload] json_contact_point hasEmail: {json_contact_point.get('hasEmail', 'MISSING')}")
     
     json_data = generate_dcat_json(
         translations=translations,
@@ -1098,6 +1125,8 @@ def upload():
     }
     template_contact_point['emailInternet'] = contact_point.get('hasEmail', '')
     template_contact_point['telWorkVoice'] = contact_point.get('hasTelephone', '')
+    logger.info(f"[/upload] template_contact_point emailInternet for form: {template_contact_point.get('emailInternet', 'MISSING')}")
+    
     return render_template('upload.html',
         translations=translations,
         contact_point=template_contact_point,
@@ -1113,78 +1142,61 @@ def upload():
 
 @app.route('/download_json', methods=['GET', 'POST'])
 def download_json():
-    # Use the latest generated JSON from session if available
-    json_data = session.get('latest_json_data')
-    if not json_data:
-        # Fallback: regenerate if not present
-        translations = session.get('translations', {})
-        theme_codes = session.get('theme_codes', [])
-        selected_agency = session.get('selected_agency', '')
-        access_rights_code = session.get('access_rights_code', 'PUBLIC')
-        license_code = session.get('license_code', '')
-        agents = get_cached_agents()
-        default_contact_point = {
-            "emailInternet": "",
-            "org": {"de": "", "en": "", "fr": "", "it": ""},
-            "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
-            "note": {"de": "", "en": "", "fr": "", "it": ""},
-            "telWorkVoice": ""
-        }
-        contact_point = session.get('contact_point', default_contact_point)
-        
-        default_contact_point = {
-            "emailInternet": "",
-            "org": {"de": "", "en": "", "fr": "", "it": ""},
-            "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
-            "note": {"de": "", "en": "", "fr": "", "it": ""},
-            "telWorkVoice": ""
-        }
-        contact_point = session.get('contact_point', default_contact_point)
-        
-        # Remove fn field if present as it's not expected in the I14Y API schema
-        if 'fn' in contact_point:
-            del contact_point['fn']
-        document_links = session.get('document_links', [])
-        
-        # Fetch agency details to get the correct identifier
-        agency_identifier = selected_agency
-        try:
-            import requests
-            response = requests.get(
-                f"https://input-backend.i14y.c.bfs.admin.ch/api/Agent/{selected_agency}",
-                timeout=5
-            )
-            if response.status_code == 200:
-                agency_details = response.json()
-                agency_identifier = agency_details.get('identifier', selected_agency)
-        except Exception as e:
-            pass
-        
-        # Make a copy of contact_point with appropriate structure for json_utils
-        json_contact_point = {
-            "fn": contact_point.get('org', {}),
-            "hasAddress": contact_point.get('adrWork', {}),
-            "hasEmail": email or contact_point.get('emailInternet', ''),  # Use email from request if available
-            "hasTelephone": contact_point.get('telWorkVoice', ''),
-            "kind": "Organization",
-            "note": contact_point.get('note', {})
-        }
-        logger.info(f"[download_json] Email in json_contact_point: {json_contact_point.get('hasEmail', 'MISSING')}")
-
-        from utils.json_utils import generate_dcat_json
-        logger.info(f"[download_json] Using publisher (agency_identifier): {agency_identifier} (selected_agency: {selected_agency})")
-        json_data = generate_dcat_json(
-            translations=translations,
-            theme_codes=theme_codes,
-            agency_id=agency_identifier,
-            swagger_url=session.get('swagger_url', ''),
-            landing_page_url=session.get('landing_page_url', ''),
-            agents_list=agents,
-            access_rights_code=access_rights_code,
-            license_code=license_code,
-            contact_point_override=json_contact_point,
-            document_links=document_links
+    # Always regenerate JSON from current session data to ensure latest values
+    # (Don't use cached session['latest_json_data'] as it may be stale after autosave)
+    translations = session.get('translations', {})
+    theme_codes = session.get('theme_codes', [])
+    selected_agency = session.get('selected_agency', '')
+    access_rights_code = session.get('access_rights_code', 'PUBLIC')
+    license_code = session.get('license_code', '')
+    agents = get_cached_agents()
+    
+    # Get contact point from session
+    contact_point = session.get('contact_point', {})
+    logger.info(f"[download_json] contact_point from session with hasEmail: {contact_point.get('hasEmail', 'MISSING')}")
+    
+    document_links = session.get('document_links', [])
+    
+    # Fetch agency details to get the correct identifier
+    agency_identifier = selected_agency
+    try:
+        import requests
+        response = requests.get(
+            f"https://input-backend.i14y.c.bfs.admin.ch/api/Agent/{selected_agency}",
+            timeout=5
         )
+        if response.status_code == 200:
+            agency_details = response.json()
+            agency_identifier = agency_details.get('identifier', selected_agency)
+    except Exception as e:
+        pass
+    
+    # Make a copy of contact_point with appropriate structure for json_utils
+    json_contact_point = {
+        "fn": contact_point.get('fn', contact_point.get('org', {})),
+        "org": contact_point.get('org', {}),
+        "hasAddress": contact_point.get('hasAddress', contact_point.get('adrWork', {})),
+        "hasEmail": contact_point.get('hasEmail', contact_point.get('emailInternet', '')),
+        "hasTelephone": contact_point.get('hasTelephone', contact_point.get('telWorkVoice', '')),
+        "kind": "Organization",
+        "note": contact_point.get('note', {})
+    }
+    logger.info(f"[download_json] json_contact_point hasEmail: {json_contact_point.get('hasEmail', 'MISSING')}")
+
+    from utils.json_utils import generate_dcat_json
+    logger.info(f"[download_json] Using publisher (agency_identifier): {agency_identifier} (selected_agency: {selected_agency})")
+    json_data = generate_dcat_json(
+        translations=translations,
+        theme_codes=theme_codes,
+        agency_id=agency_identifier,
+        swagger_url=session.get('swagger_url', ''),
+        landing_page_url=session.get('landing_page_url', ''),
+        agents_list=agents,
+        access_rights_code=access_rights_code,
+        license_code=license_code,
+        contact_point_override=json_contact_point,
+        document_links=document_links
+    )
 
     # Wrap the JSON data in a "data" field to match the POST request format
     wrapped_payload = {
@@ -1258,17 +1270,44 @@ def submit_to_i14y():
                 if lang not in contact_point['fn']:
                     contact_point['fn'][lang] = ""
             document_links = session.get('document_links', [])
+            
+            # Fetch agency details to get the correct identifier (not GUID)
+            agency_identifier = selected_agency
+            try:
+                import requests
+                response = requests.get(
+                    f"https://input-backend.i14y.c.bfs.admin.ch/api/Agent/{selected_agency}",
+                    timeout=5
+                )
+                if response.status_code == 200:
+                    agency_details = response.json()
+                    agency_identifier = agency_details.get('identifier', selected_agency)
+                    logger.info(f"[submit_to_i14y fallback] Fetched agency identifier: {agency_identifier} from GUID: {selected_agency}")
+            except Exception as e:
+                logger.warning(f"[submit_to_i14y fallback] Could not fetch agency details: {e}")
+            
+            # Make a copy of contact_point with appropriate structure for json_utils
+            json_contact_point = {
+                "fn": contact_point.get('fn', contact_point.get('org', {})),
+                "org": contact_point.get('org', {}),
+                "hasAddress": contact_point.get('hasAddress', contact_point.get('adrWork', {})),
+                "hasEmail": contact_point.get('hasEmail', contact_point.get('emailInternet', '')),
+                "hasTelephone": contact_point.get('hasTelephone', contact_point.get('telWorkVoice', '')),
+                "kind": "Organization",
+                "note": contact_point.get('note', {})
+            }
+            
             from utils.json_utils import generate_dcat_json
             json_data = generate_dcat_json(
                 translations=translations,
                 theme_codes=theme_codes,
-                agency_id=selected_agency,
+                agency_id=agency_identifier,
                 swagger_url=swagger_url,
                 landing_page_url=landing_page_url,
                 agents_list=agents,
                 access_rights_code=access_rights_code,
                 license_code=license_code,
-                contact_point_override=contact_point,
+                contact_point_override=json_contact_point,
                 document_links=document_links
             )
 
@@ -1315,66 +1354,62 @@ def submit_to_i14y():
         # Get agents for publisher name resolution
         agents = get_cached_agents()
 
-        # Get contact point from session or use default
-        default_contact_point = {
-            "emailInternet": "",
-            "org": {"de": "", "en": "", "fr": "", "it": ""},
-            "adrWork": {"de": "", "en": "", "fr": "", "it": ""},
-            "note": {"de": "", "en": "", "fr": "", "it": ""},
-            "telWorkVoice": ""
-        }
-        contact_point = session.get('contact_point', default_contact_point)
+        # Get contact point from session
+        contact_point = session.get('contact_point', {})
+        logger.info(f"[submit_to_i14y] contact_point from session with hasEmail: {contact_point.get('hasEmail', 'MISSING')}")
         
-        # Ensure contact_point is a dictionary
-        if not isinstance(contact_point, dict):
-            logger.warning(f"[submit_to_i14y] contact_point is not a dictionary: {type(contact_point)}")
-            contact_point = default_contact_point.copy()
-        
-        # Get email from request or from stored contact_point
-        email = request_data.get('email', '')
-        if not email:
-            # Try to get from contact_point (could be hasEmail or emailInternet)
-            email = contact_point.get('hasEmail', contact_point.get('emailInternet', ''))
-        
-        # Ensure contact_point has the correct structure for I14Y API
-        # Convert emailInternet to hasEmail if needed
-        if 'emailInternet' in contact_point and not contact_point.get('hasEmail'):
-            contact_point['hasEmail'] = contact_point['emailInternet']
-        
-        # Set the email if provided
-        if email:
-            contact_point['hasEmail'] = email
-            
-        # Remove fields not expected by the I14Y API schema
-        if 'fn' in contact_point:
-            del contact_point['fn']
-        if 'emailInternet' in contact_point:
-            del contact_point['emailInternet']
-        if 'telWorkVoice' in contact_point:
-            contact_point['hasTelephone'] = contact_point.get('hasTelephone', contact_point['telWorkVoice'])
-            del contact_point['telWorkVoice']
-            
         # Always get document_links from session
         document_links = session.get('document_links', [])
 
+        # Fetch agency details to get the correct identifier (not GUID)
+        agency_identifier = selected_agency
+        try:
+            import requests
+            response = requests.get(
+                f"https://input-backend.i14y.c.bfs.admin.ch/api/Agent/{selected_agency}",
+                timeout=5
+            )
+            if response.status_code == 200:
+                agency_details = response.json()
+                agency_identifier = agency_details.get('identifier', selected_agency)
+                logger.info(f"[submit_to_i14y] Fetched agency identifier: {agency_identifier} from GUID: {selected_agency}")
+        except Exception as e:
+            logger.warning(f"[submit_to_i14y] Could not fetch agency details: {e}")
+
+        # Make a copy of contact_point with appropriate structure for json_utils
+        # This matches the approach in download_json to ensure consistency
+        json_contact_point = {
+            "fn": contact_point.get('fn', contact_point.get('org', {})),
+            "org": contact_point.get('org', {}),
+            "hasAddress": contact_point.get('hasAddress', contact_point.get('adrWork', {})),
+            "hasEmail": contact_point.get('hasEmail', contact_point.get('emailInternet', '')),
+            "hasTelephone": contact_point.get('hasTelephone', contact_point.get('telWorkVoice', '')),
+            "kind": "Organization",
+            "note": contact_point.get('note', {})
+        }
+        logger.info(f"[submit_to_i14y] json_contact_point hasEmail: {json_contact_point.get('hasEmail', 'MISSING')}")
+        logger.info(f"[submit_to_i14y] json_contact_point org: {json_contact_point.get('org', {})}")
+
         # Generate the JSON data for I14Y
         from utils.json_utils import generate_dcat_json
-        logger.info(f"[submit_to_i14y] Using publisher (selected_agency): {selected_agency}")
+        logger.info(f"[submit_to_i14y] Using publisher identifier: {agency_identifier} (selected_agency GUID: {selected_agency})")
         json_data = generate_dcat_json(
             translations=translations,
             theme_codes=theme_codes,
-            agency_id=selected_agency,
+            agency_id=agency_identifier,
             swagger_url=swagger_url,
             landing_page_url=landing_page_url,
             agents_list=agents,
             access_rights_code=access_rights_code,
             license_code=license_code,
-            contact_point_override=contact_point,
+            contact_point_override=json_contact_point,
             document_links=document_links
         )
         
         # Log what we're sending
         logger.info(f"[submit_to_i14y] Email in contactPoints: {json_data.get('contactPoints', [{}])[0].get('hasEmail', 'MISSING')}")
+        logger.info(f"[submit_to_i14y] Org in contactPoints: {json_data.get('contactPoints', [{}])[0].get('org', {})}")
+        logger.info(f"[submit_to_i14y] Publisher identifier in JSON: {json_data.get('publisher', {}).get('identifier', 'MISSING')}")
 
         # Submit to I14Y API
         try:
@@ -1744,8 +1779,17 @@ def autosave_review():
     contact_point['adrWork']['en'] = request.form.get('adr_en', '')
     contact_point['adrWork']['fr'] = request.form.get('adr_fr', '')
     contact_point['adrWork']['it'] = request.form.get('adr_it', '')
-    contact_point['emailInternet'] = request.form.get('emailInternet', '')
-    contact_point['telWorkVoice'] = request.form.get('telWorkVoice', '')
+    
+    # Save email to BOTH emailInternet (for template) AND hasEmail (for JSON/API)
+    email_value = request.form.get('emailInternet', '')
+    contact_point['emailInternet'] = email_value
+    contact_point['hasEmail'] = email_value
+    
+    # Save phone to BOTH telWorkVoice (for template) AND hasTelephone (for JSON/API)
+    phone_value = request.form.get('telWorkVoice', '')
+    contact_point['telWorkVoice'] = phone_value
+    contact_point['hasTelephone'] = phone_value
+    
     contact_point['note']['de'] = request.form.get('note_de', '')
     contact_point['note']['en'] = request.form.get('note_en', '')
     contact_point['note']['fr'] = request.form.get('note_fr', '')
@@ -1776,6 +1820,8 @@ def autosave_review():
     session['translations'] = translations
     save_to_session_file('translations', translations)
     session['contact_point'] = contact_point
+    
+    logger.info(f"[autosave_review] Saved contact_point with hasEmail: {contact_point.get('hasEmail', 'MISSING')}, emailInternet: {contact_point.get('emailInternet', 'MISSING')}")
 
     return jsonify({"success": True})
 

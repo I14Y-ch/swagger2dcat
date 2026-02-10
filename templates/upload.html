@@ -64,18 +64,36 @@
                         <h4 class="mb-3">Contact Point</h4>
                         <div class="mb-3">
                             <label for="org_en" class="form-label">Organization (EN):</label>
-                            <input type="text" class="form-control" id="org_en" name="org_en" value="{{ contact_point['org']['en'] }}">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="org_en" name="org_en" value="{{ contact_point['org']['en'] }}">
+                                <button type="button" class="btn btn-outline-secondary" id="copy-org-btn" title="Copy to all languages">
+                                    <i class="bi bi-files"></i> Copy to all languages
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">Use the button to copy this organization name to all language tabs.</small>
                         </div>
                         <div class="mb-3">
                             <label for="adr_en" class="form-label">Address (EN):</label>
-                            <input type="text" class="form-control" id="adr_en" name="adr_en"
-                                value="{% if contact_point['adrWork']['en'] %}{{ contact_point['adrWork']['en'] }}
-                                       {% elif address_data and address_data.get('address') %}{{ address_data.get('address') }}
-                                       {% else %}{% endif %}">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="adr_en" name="adr_en"
+                                    value="{% if contact_point['adrWork']['en'] %}{{ contact_point['adrWork']['en'] }}
+                                           {% elif address_data and address_data.get('address') %}{{ address_data.get('address') }}
+                                           {% else %}{% endif %}">
+                                <button type="button" class="btn btn-outline-secondary" id="copy-adr-btn" title="Copy to all languages">
+                                    <i class="bi bi-files"></i> Copy to all languages
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">Use the button to copy this address to all language tabs.</small>
                         </div>
                         <div class="mb-3">
                             <label for="note_en" class="form-label">Note (EN):</label>
-                            <input type="text" class="form-control" id="note_en" name="note_en" value="{{ contact_point['note']['en'] }}">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="note_en" name="note_en" value="{{ contact_point['note']['en'] }}">
+                                <button type="button" class="btn btn-outline-secondary" id="copy-note-btn" title="Copy to all languages">
+                                    <i class="bi bi-files"></i> Copy to all languages
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">Use the button to copy this note to all language tabs.</small>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -535,6 +553,81 @@
                 const row = this.closest('.document-link-row');
                 row.parentNode.removeChild(row);
             });
+        });
+
+        // Copy organization name to all languages
+        document.getElementById('copy-org-btn').addEventListener('click', function() {
+            const orgEnValue = document.getElementById('org_en').value;
+            if (orgEnValue) {
+                document.getElementById('org_de').value = orgEnValue;
+                document.getElementById('org_fr').value = orgEnValue;
+                document.getElementById('org_it').value = orgEnValue;
+                
+                // Trigger autosave after copying
+                autosaveReview();
+                
+                // Show a brief confirmation
+                const btn = this;
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="bi bi-check-circle"></i> Copied!';
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-success');
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-outline-secondary');
+                }, 2000);
+            }
+        });
+
+        // Copy address to all languages
+        document.getElementById('copy-adr-btn').addEventListener('click', function() {
+            const adrEnValue = document.getElementById('adr_en').value;
+            if (adrEnValue) {
+                document.getElementById('adr_de').value = adrEnValue;
+                document.getElementById('adr_fr').value = adrEnValue;
+                document.getElementById('adr_it').value = adrEnValue;
+                
+                // Trigger autosave after copying
+                autosaveReview();
+                
+                // Show a brief confirmation
+                const btn = this;
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="bi bi-check-circle"></i> Copied!';
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-success');
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-outline-secondary');
+                }, 2000);
+            }
+        });
+
+        // Copy note to all languages
+        document.getElementById('copy-note-btn').addEventListener('click', function() {
+            const noteEnValue = document.getElementById('note_en').value;
+            if (noteEnValue) {
+                document.getElementById('note_de').value = noteEnValue;
+                document.getElementById('note_fr').value = noteEnValue;
+                document.getElementById('note_it').value = noteEnValue;
+                
+                // Trigger autosave after copying
+                autosaveReview();
+                
+                // Show a brief confirmation
+                const btn = this;
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="bi bi-check-circle"></i> Copied!';
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-success');
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-outline-secondary');
+                }, 2000);
+            }
         });
 
         // Autosave logic
