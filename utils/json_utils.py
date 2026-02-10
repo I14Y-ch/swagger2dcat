@@ -223,7 +223,7 @@ def generate_dcat_json(
             )
         ],
         "publisher": {
-            "identifier": "i14y-test-organisation"  # Fixed identifier as requested
+            "identifier": agency_id
         },
         "contactPoints": [{
             # Email is required - provide a default if not available
