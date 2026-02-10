@@ -1047,6 +1047,7 @@ def upload():
     from utils.json_utils import generate_dcat_json
     # Use agency identifier if available
     publisher_identifier = agency_details.get('identifier', selected_agency)
+    logger.info(f"[/upload] Using publisher identifier: {publisher_identifier} (from agency_details: {bool(agency_details)}, selected_agency: {selected_agency})")
     
     # Make a copy of contact_point with appropriate structure for json_utils
     json_contact_point = {
@@ -1169,6 +1170,7 @@ def download_json():
         }
 
         from utils.json_utils import generate_dcat_json
+        logger.info(f"[download_json] Using publisher (agency_identifier): {agency_identifier} (selected_agency: {selected_agency})")
         json_data = generate_dcat_json(
             translations=translations,
             theme_codes=theme_codes,
@@ -1344,6 +1346,7 @@ def submit_to_i14y():
 
         # Generate the JSON data for I14Y
         from utils.json_utils import generate_dcat_json
+        logger.info(f"[submit_to_i14y] Using publisher (selected_agency): {selected_agency}")
         json_data = generate_dcat_json(
             translations=translations,
             theme_codes=theme_codes,
