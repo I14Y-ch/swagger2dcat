@@ -374,14 +374,15 @@ def url():
                 
             except Exception as e:
                 logger.error(f"Exception in background processing for {proc_id}: {str(e)}")
+                logger.error("Background processing error", exc_info=True)
                 if proc_id in processing_results:
                     processing_results[proc_id]['status'] = 'error'
-                    processing_results[proc_id]['error'] = str(e)
+                    processing_results[proc_id]['error'] = 'An error occurred while processing your request. Please try again.'
                 else:
                     # Create entry if it doesn't exist
                     processing_results[proc_id] = {
                         'status': 'error',
-                        'error': str(e)
+                        'error': 'An error occurred while processing your request. Please try again.'
                     }
         
         # Initialize progress tracking
@@ -719,8 +720,7 @@ def generate():
         )
     except Exception as e:
         logger.error(f"Failed to generate content: {str(e)}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error("Generate content error", exc_info=True)
         return jsonify({"error": "Failed to generate content. Please check your API configuration and try again."})
 
     # Store the generated content in the session or return an error
@@ -1058,6 +1058,7 @@ def upload():
         "kind": "Organization",
         "note": contact_point.get('note', {})
     }
+    logger.info(f"[/upload] Email in json_contact_point: {json_contact_point.get('hasEmail', 'MISSING')}")
     
     json_data = generate_dcat_json(
         translations=translations,
@@ -1168,6 +1169,7 @@ def download_json():
             "kind": "Organization",
             "note": contact_point.get('note', {})
         }
+        logger.info(f"[download_json] Email in json_contact_point: {json_contact_point.get('hasEmail', 'MISSING')}")
 
         from utils.json_utils import generate_dcat_json
         logger.info(f"[download_json] Using publisher (agency_identifier): {agency_identifier} (selected_agency: {selected_agency})")
@@ -1328,18 +1330,29 @@ def submit_to_i14y():
             logger.warning(f"[submit_to_i14y] contact_point is not a dictionary: {type(contact_point)}")
             contact_point = default_contact_point.copy()
         
-        # Check if email is present and ensure it's properly set
-        email = request_data.get('email', contact_point.get('emailInternet', ''))
-        if email:
-            contact_point['emailInternet'] = email
+        # Get email from request or from stored contact_point
+        email = request_data.get('email', '')
+        if not email:
+            # Try to get from contact_point (could be hasEmail or emailInternet)
+            email = contact_point.get('hasEmail', contact_point.get('emailInternet', ''))
         
-        # If emailInternet is empty but we have input email, use it
-        if not contact_point.get('emailInternet') and email:
-            contact_point['emailInternet'] = email
+        # Ensure contact_point has the correct structure for I14Y API
+        # Convert emailInternet to hasEmail if needed
+        if 'emailInternet' in contact_point and not contact_point.get('hasEmail'):
+            contact_point['hasEmail'] = contact_point['emailInternet']
+        
+        # Set the email if provided
+        if email:
+            contact_point['hasEmail'] = email
             
-        # Remove the fn field if present - it's not expected by the I14Y API schema
+        # Remove fields not expected by the I14Y API schema
         if 'fn' in contact_point:
             del contact_point['fn']
+        if 'emailInternet' in contact_point:
+            del contact_point['emailInternet']
+        if 'telWorkVoice' in contact_point:
+            contact_point['hasTelephone'] = contact_point.get('hasTelephone', contact_point['telWorkVoice'])
+            del contact_point['telWorkVoice']
             
         # Always get document_links from session
         document_links = session.get('document_links', [])
@@ -1360,11 +1373,8 @@ def submit_to_i14y():
             document_links=document_links
         )
         
-        # Ensure the email is set correctly in the JSON payload
-        if json_data.get('contactPoints') and isinstance(json_data['contactPoints'], list) and json_data['contactPoints']:
-            # Force the hasEmail field to the user-provided email
-            if email:
-                json_data['contactPoints'][0]['hasEmail'] = email
+        # Log what we're sending
+        logger.info(f"[submit_to_i14y] Email in contactPoints: {json_data.get('contactPoints', [{}])[0].get('hasEmail', 'MISSING')}")
 
         # Submit to I14Y API
         try:
@@ -1385,20 +1395,18 @@ def submit_to_i14y():
                         'catalog_url': catalog_url
                     })
             else:
-                error_response = {
-                    'success': False,
-                    'error': i14y_response['error']
-                }
-                
-                # Include full error details if available
+                # Log the error details internally but show generic message to user
+                logger.error(f"I14Y API error: {i14y_response.get('error', 'Unknown error')}")
                 if 'full_error' in i14y_response:
-                    error_response['full_error'] = i14y_response['full_error']
-                    
-                return jsonify(error_response)
+                    logger.error(f"Full error details: {i14y_response['full_error']}")
+                
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to submit data to I14Y. Please check your input and try again.'
+                })
         except Exception as e:
             logger.error(f"[submit_to_i14y] Error during API submission: {str(e)}")
-            import traceback
-            logger.error(f"[submit_to_i14y] Traceback: {traceback.format_exc()}")
+            logger.error("[submit_to_i14y] API submission error", exc_info=True)
             return jsonify({
                 'success': False,
                 'error': 'An error occurred during API submission. Please check your data and try again.'
@@ -1406,8 +1414,7 @@ def submit_to_i14y():
 
     except Exception as e:
         logger.error(f"[submit_to_i14y] Internal server error: {str(e)}")
-        import traceback
-        logger.error(f"[submit_to_i14y] Traceback: {traceback.format_exc()}")
+        logger.error("[submit_to_i14y] Internal error", exc_info=True)
         return jsonify({
             'success': False,
             'error': 'An internal error occurred. Please try again later.'
@@ -1503,78 +1510,58 @@ def submit_data_to_i14y_api(json_data, token):
             try:
                 error_data = response.json()
                 error_msg = error_data.get('message') or error_data.get('error') or 'Bad request'
-                # Get detailed error info, checking different possible structures
-                error_detail = ''
-                if 'detail' in error_data:
-                    error_detail = f"\nDetail: {json.dumps(error_data['detail'], indent=2)}"
-                elif 'errors' in error_data:
-                    error_detail = f"\nErrors: {json.dumps(error_data['errors'], indent=2)}"
-                elif 'validationErrors' in error_data:
-                    error_detail = f"\nValidation Errors: {json.dumps(error_data['validationErrors'], indent=2)}"
                 
-                print(f"I14Y Partner API Error Response: {json.dumps(error_data, indent=2)}")
+                # Log detailed error info for debugging but don't expose to user
+                logger.error(f"I14Y Partner API Bad Request (400): {error_msg}")
+                logger.error(f"Full error response: {json.dumps(error_data, indent=2)}")
                 
                 return {
                     'success': False,
-                    'error': f'Partner API error: {error_msg}{error_detail}',
-                    'full_error': error_data
+                    'error': 'Bad request. Please verify your data format and try again.'
                 }
             except json.JSONDecodeError:
+                logger.error(f"I14Y API error (400): {response.text}")
                 return {
                     'success': False,
-                    'error': f'API error (HTTP {response.status_code}): {response.text}'
+                    'error': 'Bad request. Please verify your data format and try again.'
                 }
         elif response.status_code == 422:
             try:
                 error_data = response.json()
                 error_msg = error_data.get('message') or error_data.get('error') or 'Validation failed'
                 
-                # Get detailed validation errors
-                error_detail = ''
-                if 'detail' in error_data:
-                    error_detail = f"\nDetail: {json.dumps(error_data['detail'], indent=2)}"
-                elif 'errors' in error_data:
-                    error_detail = f"\nErrors: {json.dumps(error_data['errors'], indent=2)}"
-                elif 'validationErrors' in error_data:
-                    error_detail = f"\nValidation Errors: {json.dumps(error_data['validationErrors'], indent=2)}"
-                
-                print(f"I14Y Partner API Validation Error: {json.dumps(error_data, indent=2)}")
+                # Log detailed validation errors for debugging but don't expose to user
+                logger.error(f"I14Y Partner API Validation Error (422): {error_msg}")
+                logger.error(f"Full validation error: {json.dumps(error_data, indent=2)}")
                 
                 return {
                     'success': False,
-                    'error': f'Data validation failed (Partner API): {error_msg}{error_detail}',
-                    'full_error': error_data
+                    'error': 'Data validation failed. Please check all required fields and try again.'
                 }
             except json.JSONDecodeError:
+                logger.error(f"I14Y API validation error (422): {response.text}")
                 return {
                     'success': False,
-                    'error': f'Data validation failed (422): {response.text}'
+                    'error': 'Data validation failed. Please check all required fields and try again.'
                 }
         else:
             try:
                 error_data = response.json()
                 error_msg = error_data.get('message') or error_data.get('error') or f'HTTP {response.status_code}'
                 
-                # Get detailed error info for any response format
-                error_detail = ''
-                if 'detail' in error_data:
-                    error_detail = f"\nDetail: {json.dumps(error_data['detail'], indent=2)}"
-                elif 'errors' in error_data:
-                    error_detail = f"\nErrors: {json.dumps(error_data['errors'], indent=2)}"
-                elif 'validationErrors' in error_data:
-                    error_detail = f"\nValidation Errors: {json.dumps(error_data['validationErrors'], indent=2)}"
-                
-                print(f"I14Y Partner API Error (HTTP {response.status_code}): {json.dumps(error_data, indent=2)}")
+                # Log detailed error info for debugging but don't expose to user
+                logger.error(f"I14Y Partner API Error (HTTP {response.status_code}): {error_msg}")
+                logger.error(f"Full error response: {json.dumps(error_data, indent=2)}")
                 
                 return {
                     'success': False,
-                    'error': f'Partner API error: {error_msg}{error_detail}',
-                    'full_error': error_data
+                    'error': f'API request failed. Please try again later.'
                 }
             except json.JSONDecodeError:
+                logger.error(f"I14Y API error (HTTP {response.status_code}): {response.text}")
                 return {
                     'success': False,
-                    'error': f'API error (HTTP {response.status_code}): {response.text}'
+                    'error': f'API request failed. Please try again later.'
                 }
     except requests.exceptions.Timeout:
         return {
@@ -1710,8 +1697,7 @@ def debug_i14y_json():
         return jsonify(response_data)
     except Exception as e:
         logger.error(f"Error generating preview JSON: {str(e)}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error("Preview generation error", exc_info=True)
         return jsonify({
             'error': 'An error occurred while generating the preview. Please check your input and try again.'
         })

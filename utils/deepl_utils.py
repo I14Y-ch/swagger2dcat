@@ -185,7 +185,7 @@ def translate_to_language(title_en, description_en, keywords_en, target_lang):
         translator = deepl.Translator(DEEPL_API_KEY)
     except Exception as e:
         logger.error(f"[translate_to_language] Failed to initialize translator: {str(e)}")
-        return {'error': f'Failed to initialize DeepL translator: {str(e)}'}
+        return {'error': 'Translation service unavailable. Please try again later.'}
     
     # Map target language to DeepL language codes
     lang_map = {
@@ -235,4 +235,4 @@ def translate_to_language(title_en, description_en, keywords_en, target_lang):
         
     except Exception as e:
         logger.error(f"[translate_to_language] Translation failed: {str(e)}")
-        return {'error': f'Translation failed: {str(e)}'}
+        return {'error': 'Translation failed. Please try again.'}

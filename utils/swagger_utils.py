@@ -2,11 +2,15 @@ import json
 import requests
 import time
 import re
+import logging
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import urlparse, urljoin
 from utils.async_http import fetch_urls_sync, check_urls_sync
+
+# Get logger
+logger = logging.getLogger('swagger2dcat')
 
 def create_session_with_retries():
     """Create a requests session with retry strategy"""
@@ -163,7 +167,8 @@ def detect_swagger_json_url(html_url, timeout=10):
         return None, False
         
     except Exception as e:
-        print(f"❌ Error detecting JSON URL: {str(e)}")
+        logger.error(f"Error detecting JSON URL: {str(e)}")
+        print("❌ Error detecting JSON URL")
         return None, False
 
 def is_likely_json_url(url):
@@ -260,7 +265,7 @@ def resolve_swagger_url(input_url, timeout=10):
             'json_url': input_url,
             'original_url': input_url,
             'detected': False,
-            'error': str(e)
+            'error': 'Failed to resolve API specification URL'
         }
 
 def extract_swagger_info(swagger_url, timeout=10):
@@ -317,8 +322,9 @@ def extract_swagger_info(swagger_url, timeout=10):
         try:
             swagger_data = response.json()
         except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in Swagger specification: {str(e)}")
             return {
-                'error': f'Invalid JSON in Swagger specification: {str(e)}'
+                'error': 'Invalid JSON format in API specification'
             }
         
         # Extract basic info efficiently
@@ -417,10 +423,12 @@ def extract_swagger_info(swagger_url, timeout=10):
             'error': f'Timeout while fetching Swagger specification (>{timeout}s)'
         }
     except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching Swagger specification: {str(e)}")
         return {
-            'error': f'Error fetching Swagger specification: {str(e)}'
+            'error': 'Error fetching API specification. Please check the URL.'
         }
     except Exception as e:
+        logger.error(f"Error parsing Swagger specification: {str(e)}")
         return {
-            'error': f'Error parsing Swagger specification: {str(e)}'
+            'error': 'Error parsing API specification. Please verify the format.'
         }

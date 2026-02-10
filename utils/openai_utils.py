@@ -1,8 +1,11 @@
 import os
 import json
+import logging
 import requests
-import traceback
 from openai import OpenAI
+
+# Get logger
+logger = logging.getLogger('swagger2dcat')
 
 # Try to get API key from environment with proper fallbacks and helpful error messages
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
@@ -69,8 +72,9 @@ def generate_api_description(swagger_url, landing_page_url=None, landing_page_co
             swagger_content = swagger_content[:8000]  # Limit to approximately 8000 characters
             
     except Exception as e:
+        logger.error(f"Error fetching swagger URL: {str(e)}")
         return {
-            "error": f"Error fetching swagger URL: {str(e)}"
+            "error": "Error fetching API specification. Please check the URL."
         }
     
     # Use the pre-extracted landing page content or set to empty string if none provided
@@ -259,7 +263,8 @@ def generate_api_description(swagger_url, landing_page_url=None, landing_page_co
         
         return result
     except Exception as e:
+        logger.error(f"OpenAI API error: {str(e)}")
+        logger.error("OpenAI API call failed", exc_info=True)
         return {
-            "error": f"OpenAI API error: {str(e)}",
-            "details": traceback.format_exc()
+            "error": "Failed to generate content. Please try again."
         }
