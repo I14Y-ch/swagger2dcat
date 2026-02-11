@@ -268,7 +268,7 @@ def generate_dcat_json(
                 "rm": ""
             }
         }],
-        "themeCodes": theme_codes if theme_codes else [],
+        "themes": [{"code": code} for code in theme_codes] if theme_codes else [],
         "accessRights": {
             "code": access_rights_code
         },
