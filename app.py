@@ -176,21 +176,29 @@ def load_processing_data(processing_id):
         return None
     
     temp_dir = tempfile.gettempdir()
-    temp_file = os.path.join(temp_dir, f"swagger2dcat_{processing_id}.pkl")
+    # Normalize and secure the file path
+    filename = f"swagger2dcat_{processing_id}.pkl"
+    temp_file = os.path.normpath(os.path.join(temp_dir, filename))
     
     # Ensure the file path is within temp directory (prevent path traversal)
     real_temp_dir = os.path.realpath(temp_dir)
     real_temp_file = os.path.realpath(temp_file)
-    if not real_temp_file.startswith(real_temp_dir):
+    if not real_temp_file.startswith(real_temp_dir + os.sep):
         logger.error("Path traversal attempt detected")
         return None
     
+    # Additional security check: verify filename doesn't contain path separators
+    if os.sep in processing_id or '..' in processing_id:
+        logger.error("Invalid characters in processing_id")
+        return None
+    
     try:
-        if os.path.exists(temp_file):
-            with open(temp_file, 'rb') as f:
+        # Use the validated real path for all operations
+        if os.path.exists(real_temp_file):
+            with open(real_temp_file, 'rb') as f:
                 data = pickle.load(f)
             # Clean up the file after loading
-            os.remove(temp_file)
+            os.remove(real_temp_file)
             return data
     except Exception as e:
         logger.error(f"Error loading processing data: {str(e)}")
@@ -1430,16 +1438,18 @@ def submit_to_i14y():
                     'error': 'Failed to submit data to I14Y. Please check your input and try again.'
                 })
         except Exception as e:
-            logger.error(f"[submit_to_i14y] Error during API submission: {str(e)}")
+            # Log full error details internally only
             logger.error("[submit_to_i14y] API submission error", exc_info=True)
+            # Return generic error message without exposing internal details
             return jsonify({
                 'success': False,
                 'error': 'An error occurred during API submission. Please check your data and try again.'
             })
 
     except Exception as e:
-        logger.error(f"[submit_to_i14y] Internal server error: {str(e)}")
+        # Log full error details internally only
         logger.error("[submit_to_i14y] Internal error", exc_info=True)
+        # Return generic error message without exposing internal details
         return jsonify({
             'success': False,
             'error': 'An internal error occurred. Please try again later.'
