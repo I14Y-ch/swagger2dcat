@@ -1602,14 +1602,18 @@ def submit_data_to_i14y_api(json_data, token):
             'error': 'Connection error. Please check your internet connection and try again.'
         }
     except requests.exceptions.RequestException as e:
+        # Log error details internally only
+        logger.error(f"I14Y API network error: {str(e)}", exc_info=True)
         return {
             'success': False,
-            'error': f'Network error: {str(e)}'
+            'error': 'Network error occurred. Please try again later.'
         }
     except Exception as e:
+        # Log error details internally only
+        logger.error(f"I14Y API unexpected error: {str(e)}", exc_info=True)
         return {
             'success': False,
-            'error': f'Internal server error: {str(e)}'
+            'error': 'An unexpected error occurred. Please try again later.'
         }
 
 @app.route('/debug_i14y_json', methods=['GET'])
