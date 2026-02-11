@@ -843,12 +843,7 @@ def upload():
     session['translations'] = translations
     session['translations_available'] = True
     
-    logger.info(f"[/upload] Loaded translations with keys: {list(translations.keys()) if translations else 'None'}")
-    if translations:
-        logger.info(f"[/upload] EN title: '{translations.get('en', {}).get('title', 'MISSING')[:50]}...'")
-        logger.info(f"[/upload] DE title: '{translations.get('de', {}).get('title', 'MISSING')[:50]}...'")
-        logger.info(f"[/upload] FR title: '{translations.get('fr', {}).get('title', 'MISSING')[:50]}...'")
-        logger.info(f"[/upload] IT title: '{translations.get('it', {}).get('title', 'MISSING')[:50]}...'")
+    logger.info(f"[/upload] Translations loaded successfully")
     
     # Initialize default contact point structure if missing
     default_contact_point = {
@@ -911,8 +906,12 @@ def upload():
         # Ensure all required fields exist in the structure
         if 'fn' not in contact_point or not isinstance(contact_point.get('fn'), dict):
             contact_point['fn'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+        if 'org' not in contact_point or not isinstance(contact_point.get('org'), dict):
+            contact_point['org'] = {"de": "", "en": "", "fr": "", "it": ""}
         if 'hasAddress' not in contact_point or not isinstance(contact_point.get('hasAddress'), dict):
             contact_point['hasAddress'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
+        if 'adrWork' not in contact_point or not isinstance(contact_point.get('adrWork'), dict):
+            contact_point['adrWork'] = {"de": "", "en": "", "fr": "", "it": ""}
         if 'note' not in contact_point or not isinstance(contact_point.get('note'), dict):
             contact_point['note'] = {"de": "", "en": "", "fr": "", "it": "", "rm": ""}
                 
@@ -936,17 +935,28 @@ def upload():
         translations['it']['description'] = request.form.get('description_it', '')
         translations['it']['keywords'] = [kw.strip() for kw in request.form.get('keywords_it', '').split(',') if kw.strip()]
         
-        # Contact point fields - ensure fn structure exists and populate it
+        # Contact point fields - save to BOTH fn/org and hasAddress/adrWork for compatibility
         contact_point['fn']['de'] = request.form.get('org_de', '')
         contact_point['fn']['en'] = request.form.get('org_en', '')
         contact_point['fn']['fr'] = request.form.get('org_fr', '')
         contact_point['fn']['it'] = request.form.get('org_it', '')
         contact_point['fn']['rm'] = ""
+        # ALSO save to org field (for autosave consistency)
+        contact_point['org']['de'] = request.form.get('org_de', '')
+        contact_point['org']['en'] = request.form.get('org_en', '')
+        contact_point['org']['fr'] = request.form.get('org_fr', '')
+        contact_point['org']['it'] = request.form.get('org_it', '')
+        
         contact_point['hasAddress']['de'] = request.form.get('adr_de', '')
         contact_point['hasAddress']['en'] = request.form.get('adr_en', '')
         contact_point['hasAddress']['fr'] = request.form.get('adr_fr', '')
         contact_point['hasAddress']['it'] = request.form.get('adr_it', '')
         contact_point['hasAddress']['rm'] = ""
+        # ALSO save to adrWork field (for autosave consistency)
+        contact_point['adrWork']['de'] = request.form.get('adr_de', '')
+        contact_point['adrWork']['en'] = request.form.get('adr_en', '')
+        contact_point['adrWork']['fr'] = request.form.get('adr_fr', '')
+        contact_point['adrWork']['it'] = request.form.get('adr_it', '')
         
         # Save email and phone to BOTH field names (for template AND JSON/API compatibility)
         email_value = request.form.get('emailInternet', '')
@@ -989,16 +999,14 @@ def upload():
         save_to_session_file('translations', translations)
         session['translations_available'] = True
         
-        # Save contact point to session - ensure hasEmail is set
+        # Save contact point to session
         session['contact_point'] = contact_point
-        logger.info(f"[/upload POST] Saved contact_point with hasEmail: {contact_point.get('hasEmail', 'MISSING')}")
         
         flash("Review changes saved. You can now submit or download the JSON.", "success")
         # Re-render the page with updated data
     else:
         # GET request - load contact point from session
         contact_point = session.get('contact_point', default_contact_point.copy())
-        logger.info(f"[/upload GET] loaded contact_point from session with hasEmail: {contact_point.get('hasEmail', 'MISSING')}")
         
         # Ensure backward compatibility with template fields
         if 'org' not in contact_point:
@@ -1084,8 +1092,6 @@ def upload():
         "kind": "Organization",
         "note": contact_point.get('note', {})
     }
-    logger.info(f"[/upload] contact_point hasEmail: {contact_point.get('hasEmail', 'MISSING')}, emailInternet: {contact_point.get('emailInternet', 'MISSING')}")
-    logger.info(f"[/upload] json_contact_point hasEmail: {json_contact_point.get('hasEmail', 'MISSING')}")
     
     json_data = generate_dcat_json(
         translations=translations,
@@ -1105,9 +1111,7 @@ def upload():
     session['latest_json_data'] = json_data
 
     # Render the template with editable fields
-    logger.info(f"[/upload] Rendering template with translations keys: {list(translations.keys()) if translations else 'None'}")
-    logger.info(f"[/upload] English title: '{translations.get('en', {}).get('title', 'MISSING')[:50]}...' if translations else 'No translations'")
-    logger.info(f"[/upload] Contact point org en: '{contact_point.get('org', {}).get('en', 'MISSING')}'")
+    logger.info(f"[/upload] Rendering template with translations")
     
     # Compatibility mapping for template
     template_contact_point = contact_point.copy()
@@ -1125,7 +1129,6 @@ def upload():
     }
     template_contact_point['emailInternet'] = contact_point.get('hasEmail', '')
     template_contact_point['telWorkVoice'] = contact_point.get('hasTelephone', '')
-    logger.info(f"[/upload] template_contact_point emailInternet for form: {template_contact_point.get('emailInternet', 'MISSING')}")
     
     return render_template('upload.html',
         translations=translations,
@@ -1153,7 +1156,6 @@ def download_json():
     
     # Get contact point from session
     contact_point = session.get('contact_point', {})
-    logger.info(f"[download_json] contact_point from session with hasEmail: {contact_point.get('hasEmail', 'MISSING')}")
     
     document_links = session.get('document_links', [])
     
@@ -1181,7 +1183,6 @@ def download_json():
         "kind": "Organization",
         "note": contact_point.get('note', {})
     }
-    logger.info(f"[download_json] json_contact_point hasEmail: {json_contact_point.get('hasEmail', 'MISSING')}")
 
     from utils.json_utils import generate_dcat_json
     logger.info(f"[download_json] Using publisher (agency_identifier): {agency_identifier} (selected_agency: {selected_agency})")
@@ -1356,7 +1357,6 @@ def submit_to_i14y():
 
         # Get contact point from session
         contact_point = session.get('contact_point', {})
-        logger.info(f"[submit_to_i14y] contact_point from session with hasEmail: {contact_point.get('hasEmail', 'MISSING')}")
         
         # Always get document_links from session
         document_links = session.get('document_links', [])
@@ -1387,8 +1387,6 @@ def submit_to_i14y():
             "kind": "Organization",
             "note": contact_point.get('note', {})
         }
-        logger.info(f"[submit_to_i14y] json_contact_point hasEmail: {json_contact_point.get('hasEmail', 'MISSING')}")
-        logger.info(f"[submit_to_i14y] json_contact_point org: {json_contact_point.get('org', {})}")
 
         # Generate the JSON data for I14Y
         from utils.json_utils import generate_dcat_json
@@ -1406,17 +1404,9 @@ def submit_to_i14y():
             document_links=document_links
         )
         
-        # Log what we're sending
-        logger.info(f"[submit_to_i14y] Email in contactPoints: {json_data.get('contactPoints', [{}])[0].get('hasEmail', 'MISSING')}")
-        logger.info(f"[submit_to_i14y] Org in contactPoints: {json_data.get('contactPoints', [{}])[0].get('org', {})}")
-        logger.info(f"[submit_to_i14y] Publisher identifier in JSON: {json_data.get('publisher', {}).get('identifier', 'MISSING')}")
-
         # Submit to I14Y API
         try:
-            logger.info(f"[submit_to_i14y] Calling submit_data_to_i14y_api with JSON data")
-            logger.info(f"[submit_to_i14y] Type of contact_point: {type(contact_point)}")
-            for key, value in contact_point.items():
-                logger.info(f"[submit_to_i14y] contact_point[{key}] = {type(value)}")
+            logger.info(f"[submit_to_i14y] Calling submit_data_to_i14y_api")
             
             i14y_response = submit_data_to_i14y_api(json_data, token)
             
@@ -1477,19 +1467,12 @@ def submit_data_to_i14y_api(json_data, token):
             'Accept': 'application/json'
         }
         
-        # Debug info - log structure but not sensitive data
-        logger.info(f"[submit_data_to_i14y_api] Publisher identifier: {json_data.get('publisher', {}).get('identifier')}")
-        logger.info(f"[submit_data_to_i14y_api] Contact points count: {len(json_data.get('contactPoints', []))}")
-        if json_data.get('contactPoints'):
-            logger.info(f"[submit_data_to_i14y_api] Contact point structure validated")
-        
         # Wrap the JSON data in a "data" field as required by the Partner API
-        # Also include the 'input' field required by the Partner API
         wrapped_payload = {
             "data": json_data
         }
-        # Don't print full json_data as it may contain sensitive information
         logger.debug(f"[submit_data_to_i14y_api] Payload prepared for submission")
+        
         # Make the API request with timeout
         response = requests.post(
             api_endpoint,
@@ -1820,8 +1803,6 @@ def autosave_review():
     session['translations'] = translations
     save_to_session_file('translations', translations)
     session['contact_point'] = contact_point
-    
-    logger.info(f"[autosave_review] Saved contact_point with hasEmail: {contact_point.get('hasEmail', 'MISSING')}, emailInternet: {contact_point.get('emailInternet', 'MISSING')}")
 
     return jsonify({"success": True})
 
