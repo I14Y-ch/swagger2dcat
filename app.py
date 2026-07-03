@@ -39,6 +39,11 @@ app = Flask(__name__,
             template_folder='templates'
            )
 
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'}), 200
+
 # Session cleanup utility
 def cleanup_old_sessions(session_dir, max_age_seconds=7200):
     """
