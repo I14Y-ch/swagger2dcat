@@ -6,7 +6,7 @@ requests==2.33.0
 deepl==1.21.0
 httpx==0.28.1
 beautifulsoup4==4.12.3
-gunicorn==25.1.0
+gunicorn==26.0.0
 flask-session==0.8.0
 # glob2 removed: abandoned, use stdlib glob
 # asyncio removed: stdlib module in Python 3, PyPI package is a dangerous Python 2 backport
