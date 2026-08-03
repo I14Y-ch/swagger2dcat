@@ -1,36 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="{{ csrf_token }}" />
     <title>{% block title %}Swagger to DCAT Converter{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/styles.css') }}"
+    />
     {% block head %}{% endblock %}
-</head>
-<body>
+  </head>
+  <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">Swagger to DCAT Converter</a>
-        </div>
+      <div class="container">
+        <a class="navbar-brand" href="/">Swagger to DCAT Converter</a>
+      </div>
     </nav>
 
     <div class="container mt-4">
-        <!-- Simple breadcrumb navigation -->
-        <nav aria-label="breadcrumb" class="mb-4">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ url_for('url') }}">URL Input</a></li>
-                <li class="breadcrumb-item"><a href="{{ url_for('ai') }}">Metadata & Translation</a></li>
-                <li class="breadcrumb-item"><a href="{{ url_for('upload') }}">Review & Submit</a></li>
-            </ol>
-        </nav>
+      <!-- Simple breadcrumb navigation -->
+      <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item">
+            <a href="{{ url_for('url') }}">URL Input</a>
+          </li>
+          <li class="breadcrumb-item">
+            <a href="{{ url_for('ai') }}">Metadata & Translation</a>
+          </li>
+          <li class="breadcrumb-item">
+            <a href="{{ url_for('upload') }}">Review & Submit</a>
+          </li>
+        </ol>
+      </nav>
     </div>
 
     {% block content %}{% endblock %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
     {% block scripts %}{% endblock %}
-</body>
+  </body>
 </html>
