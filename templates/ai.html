@@ -36,6 +36,7 @@
     </div>
 
     <form id="apiDetailsForm" method="POST" action="/save_api_details">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="card mb-4">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h3 class="mb-0">API Details</h3>
@@ -166,6 +167,7 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const generateBtn = document.getElementById('generateBtn');
     const loadingSpinner = document.getElementById('loadingSpinner');
     const titleField = document.getElementById('title');
@@ -185,7 +187,8 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/generate', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
             },
             body: JSON.stringify({})
         })

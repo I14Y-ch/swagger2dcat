@@ -8,6 +8,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import urlparse, urljoin
 from utils.async_http import fetch_urls_sync, check_urls_sync
+from utils.safe_requests import safe_get
 
 # Get logger
 logger = logging.getLogger('swagger2dcat')
@@ -41,7 +42,7 @@ def detect_swagger_json_url(html_url, timeout=10):
     """
     try:
         # Fetch the HTML page
-        response = requests.get(html_url, timeout=timeout)
+        response = safe_get(html_url, timeout=timeout)
         response.raise_for_status()
         html_content = response.text
         
@@ -311,8 +312,8 @@ def extract_swagger_info(swagger_url, timeout=10):
         # Use session with retries and timeout
         session = create_session_with_retries()
         
-        # Fetch with timeout
-        response = session.get(actual_json_url, timeout=timeout)
+        # Fetch with timeout (SSRF-safe: validates URL is public, refuses redirects)
+        response = safe_get(actual_json_url, session=session, timeout=timeout)
         response.raise_for_status()
         
         fetch_time = time.time() - start_time

@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import re
 from urllib.parse import urlparse, urljoin
 from utils.async_http import fetch_urls_sync
+from utils.safe_requests import safe_get
 
 def detect_language_from_url(url):
     """
@@ -192,7 +193,7 @@ def extract_web_content(url):
         
         if not main_content:
             # Fallback to standard request if async failed
-            response = requests.get(url, timeout=10)
+            response = safe_get(url, timeout=10)
             main_content = response.text
         
         # Parse the HTML

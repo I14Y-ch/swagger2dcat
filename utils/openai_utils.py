@@ -4,6 +4,8 @@ import logging
 import requests
 from openai import OpenAI
 
+from utils.safe_requests import safe_get
+
 # Get logger
 logger = logging.getLogger('swagger2dcat')
 
@@ -46,7 +48,7 @@ def generate_api_description(swagger_url, landing_page_url=None, landing_page_co
     
     # Fetch Swagger content
     try:
-        swagger_response = requests.get(swagger_url)
+        swagger_response = safe_get(swagger_url, timeout=10)
         swagger_response.raise_for_status()
         swagger_content = swagger_response.text
         

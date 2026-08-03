@@ -16,6 +16,7 @@
       {% endif %}
     {% endwith %}
     <form method="POST" action="{{ url_for('url') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="mb-3">
             <label for="swagger_url" class="form-label">Swagger/OpenAPI URL *</label>
             <input type="url" class="form-control" id="swagger_url" name="swagger_url" value="{{ swagger_url }}" required>

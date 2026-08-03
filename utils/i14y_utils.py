@@ -2,7 +2,6 @@ import requests
 import json
 import os
 import time
-import pickle
 import logging
 
 # Get logger
@@ -10,7 +9,7 @@ logger = logging.getLogger('swagger2dcat')
 
 # Constants
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache')
-AGENTS_CACHE_FILE = os.path.join(CACHE_DIR, 'agents_cache.pkl')
+AGENTS_CACHE_FILE = os.path.join(CACHE_DIR, 'agents_cache.json')
 CACHE_EXPIRY = 24 * 60 * 60  # 24 hours in seconds
 
 def get_agents(fetch_details=False):
@@ -145,8 +144,8 @@ def _load_agents_from_cache(ignore_expiry=False):
                 return None
         
         # Load and return cached data
-        with open(AGENTS_CACHE_FILE, 'rb') as f:
-            return pickle.load(f)
+        with open(AGENTS_CACHE_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
     
     except Exception as e:
         # If any error occurs, return None to indicate cache miss
@@ -164,8 +163,8 @@ def _save_agents_to_cache(agents_data):
         os.makedirs(CACHE_DIR, exist_ok=True)
         
         # Save data to cache file
-        with open(AGENTS_CACHE_FILE, 'wb') as f:
-            pickle.dump(agents_data, f)
+        with open(AGENTS_CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(agents_data, f, ensure_ascii=False)
         
         logger.info(f"Saved {len(agents_data)} agents to cache")
     

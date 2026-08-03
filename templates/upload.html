@@ -17,6 +17,7 @@
     {% endwith %}
 
     <form method="POST" action="/upload" id="reviewForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <!-- Tab navigation -->
         <ul class="nav nav-tabs mb-3" id="reviewTabs" role="tablist">
             <li class="nav-item" role="presentation">
@@ -453,6 +454,7 @@
 
 {% block scripts %}
 <script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     document.addEventListener('DOMContentLoaded', function() {
         // Enable form validation
         const reviewForm = document.getElementById('reviewForm');
@@ -638,6 +640,9 @@
                 const formData = new FormData(reviewForm);
                 fetch('/autosave_review', {
                     method: 'POST',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
                     body: formData
                 });
             }, 400); // debounce
@@ -706,6 +711,7 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
             },
             body: JSON.stringify({
                 token: token,

@@ -1,7 +1,6 @@
 import os
 import json
-import time
-import hashlib
+import secrets
 from flask import session
 
 # Setup session storage directory
@@ -17,7 +16,8 @@ def get_session_file_path(key=None):
     ensure_storage_dir()
     session_id = session.get('_id', None)
     if not session_id:
-        session_id = hashlib.md5(str(time.time()).encode()).hexdigest()
+        # Use cryptographically secure random token for session storage id.
+        session_id = secrets.token_hex(16)
         session['_id'] = session_id
     
     # If key is provided, use it for subfolder organization

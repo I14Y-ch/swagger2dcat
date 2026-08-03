@@ -23,6 +23,11 @@ ENV FLASK_ENV=production
 ENV FLASK_RUN_PORT=8080
 ENV PORT=8080
 
+# Create non-root user for security (mitigates container escape via app RCE)
+RUN useradd --create-home --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 # Expose the port
 EXPOSE 8080
 

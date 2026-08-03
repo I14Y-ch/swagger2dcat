@@ -11,22 +11,27 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 WORKDIR /app
 
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && addgroup --system app \
     && adduser --system --ingroup app --home /app --no-create-home app
 
 COPY requirements.txt .
-RUN python -m pip install --upgrade pip \
-    && python -m pip install -r requirements.txt
+RUN python -m pip install --upgrade pip "setuptools>=78.1.1,<81" \
+    && python -m pip install -r requirements.txt \
+    && python -m pip uninstall --yes pip
 
 COPY --chown=app:app . .
 RUN mkdir -p /app/session_storage \
     && chown -R app:app /app \
-    && chmod 775 /app/session_storage
+    && chmod 700 /app/session_storage
 
 USER app
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers ${WEB_CONCURRENCY:-2} --timeout ${GUNICORN_TIMEOUT:-180} --access-logfile - --error-logfile - app:app"]
+# WEB_CONCURRENCY is forced to 1: processing_results is a per-process in-memory dict,
+# so multiple workers would each see only their own workflows. Scale horizontally via
+# replicas, not workers, or migrate the state store to Redis first.
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --timeout ${GUNICORN_TIMEOUT:-180} --access-logfile - --error-logfile - app:app"]

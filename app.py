@@ -5,7 +5,6 @@ import uuid
 import threading
 import time
 import tempfile
-import pickle
 import requests
 import re
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -65,27 +64,19 @@ def cleanup_old_sessions(session_dir, max_age_seconds=7200):
         logger.info(f"Deleted {deleted} expired session files from {session_dir}")
 
 # Configure server-side session storage
+# Directory ownership/permissions are set by the Dockerfile (chown app:app, chmod 700).
+# Gunicorn workers all run as user 'app', so no runtime chmod is needed.
 session_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_storage')
 os.makedirs(session_dir, exist_ok=True)
 
 # Clean up old sessions before initializing session interface
 cleanup_old_sessions(session_dir, max_age_seconds=7200)
 
-# Ensure permissions are set correctly for Docker environment
-try:
-    os.chmod(session_dir, 0o777)  # Make writable by all users (needed for Docker; WARNING: 0o777 makes the directory world-writable. Only use this in isolated Docker containers, never on shared or production hosts, as it poses a security risk.)
-    if os.environ.get('DOCKERIZED', '').lower() == 'true':
-        os.chmod(session_dir, 0o777)  # Relaxed permissions for Docker
-    else:
-        os.chmod(session_dir, 0o770)  # Restrict to owner/group
-except Exception as e:
-    logger.warning(f"Could not set permissions on session directory: {e}")
-
 # Configure session
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = session_dir
 app.config['SESSION_PERMANENT'] = False
-app.config['SESSION_USE_SIGNER'] = False  # Disable signer to avoid bytes/string issues
+app.config['SESSION_USE_SIGNER'] = True  # Sign the session ID cookie with SECRET_KEY
 app.config['SESSION_KEY_PREFIX'] = ''
 app.config['SESSION_COOKIE_PATH'] = '/'
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -100,18 +91,25 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_
 
 # Note: APPLICATION_ROOT removed - app runs at root path
 
-# Initialize Flask app
-secret_key = os.environ.get('SECRET_KEY')
-if not secret_key:
-    logger.warning("SECRET_KEY not set in environment! Using default (insecure) key.")
-    secret_key = 'swagger2dcat-secret-key'
-app.secret_key = secret_key
+# Initialize Flask app secret key (fail-closed: refuse to start with a weak or missing key)
+def _load_secret_key():
+    key = os.environ.get('SECRET_KEY', '')
+    if len(key) < 32:
+        raise RuntimeError('SECRET_KEY must be configured with at least 32 characters')
+    return key
+
+app.secret_key = _load_secret_key()
 
 # Create session directory
 os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'session_storage'), exist_ok=True)
 
-# Global dictionary to store processing results (in production, you'd use Redis or similar)
+# Global dictionary to store processing results (in production, you'd use Redis or similar).
+# All access must be guarded by processing_results_lock to prevent races between the
+# request thread and background worker threads. Also, WEB_CONCURRENCY must be 1 in
+# production because this state is per-process (multiple gunicorn workers would each
+# have their own copy and lose track of workflows they didn't start).
 processing_results = {}
+processing_results_lock = threading.Lock()
 
 # Global cache for agents to avoid repeated API calls
 agents_cache = {
@@ -147,7 +145,12 @@ def get_cached_agents():
         return agents_cache['data'] if agents_cache['data'] is not None else []
 
 def save_processing_data(processing_id, data):
-    """Save processing data to temporary file to avoid session size limits"""
+    """Save processing data to a temporary JSON file to avoid session size limits.
+
+    JSON is used instead of pickle for security: pickle can execute arbitrary code
+    during deserialization, JSON cannot. The data being stored here (swagger info,
+    landing page content, agents list, URLs, metrics) is already JSON-serializable.
+    """
     # Validate processing_id to prevent path injection
     import re
     if not re.match(r'^[a-f0-9-]+$', processing_id):
@@ -155,7 +158,7 @@ def save_processing_data(processing_id, data):
         return False
     
     temp_dir = tempfile.gettempdir()
-    temp_file = os.path.join(temp_dir, f"swagger2dcat_{processing_id}.pkl")
+    temp_file = os.path.join(temp_dir, f"swagger2dcat_{processing_id}.json")
     
     # Ensure the file path is within temp directory (prevent path traversal)
     real_temp_dir = os.path.realpath(temp_dir)
@@ -165,15 +168,15 @@ def save_processing_data(processing_id, data):
         return False
     
     try:
-        with open(temp_file, 'wb') as f:
-            pickle.dump(data, f)
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, default=str)
         return True
     except Exception as e:
         logger.error(f"Error saving processing data: {str(e)}")
         return False
 
 def load_processing_data(processing_id):
-    """Load processing data from temporary file"""
+    """Load processing data from temporary JSON file."""
     # Validate processing_id to prevent path injection
     import re
     if not re.match(r'^[a-f0-9-]+$', processing_id):
@@ -182,7 +185,7 @@ def load_processing_data(processing_id):
     
     temp_dir = tempfile.gettempdir()
     # Normalize and secure the file path
-    filename = f"swagger2dcat_{processing_id}.pkl"
+    filename = f"swagger2dcat_{processing_id}.json"
     temp_file = os.path.normpath(os.path.join(temp_dir, filename))
     
     # Ensure the file path is within temp directory (prevent path traversal)
@@ -200,8 +203,8 @@ def load_processing_data(processing_id):
     try:
         # Use the validated real path for all operations
         if os.path.exists(real_temp_file):
-            with open(real_temp_file, 'rb') as f:
-                data = pickle.load(f)
+            with open(real_temp_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
             # Clean up the file after loading
             os.remove(real_temp_file)
             return data
@@ -1957,4 +1960,5 @@ def save_api_details():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     logger.info(f"Starting Flask app on port {port}")
-    app.run(debug=False, host='0.0.0.0', port=port)
+    # Bind all interfaces: required in containerized deployments where the platform's ingress reaches the app via the container network.
+    app.run(debug=False, host='0.0.0.0', port=port)  # nosec B104  # nosemgrep: python.flask.security.audit.app-run-param-config.avoid_app_run_with_bad_host
