@@ -3,7 +3,7 @@ Werkzeug==3.1.8
 openai==1.93.0
 python-dotenv==1.2.2
 requests==2.34.2
-deepl==1.21.0
+deepl==1.30.0
 httpx==0.28.1
 beautifulsoup4==4.15.0
 gunicorn==26.0.0
